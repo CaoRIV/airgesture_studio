@@ -52,6 +52,26 @@ class HandTracker:
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         return self._landmarker.detect(image)
 
+    def get_landmark_pixel(
+        self,
+        results,
+        frame_shape,
+        landmark_index: int,
+        hand_index: int = 0,
+    ) -> tuple[int, int] | None:
+        if not results.hand_landmarks or hand_index >= len(results.hand_landmarks):
+            return None
+
+        hand_landmarks = results.hand_landmarks[hand_index]
+        if landmark_index >= len(hand_landmarks):
+            return None
+
+        frame_height, frame_width = frame_shape[:2]
+        landmark = hand_landmarks[landmark_index]
+        x = min(max(int(landmark.x * frame_width), 0), frame_width - 1)
+        y = min(max(int(landmark.y * frame_height), 0), frame_height - 1)
+        return x, y
+
     def draw_landmarks(self, frame, results) -> None:
         if not results.hand_landmarks:
             return

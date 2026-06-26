@@ -1,6 +1,6 @@
 # Hand Gesture Air Drawing System
 
-Phase 1 sets up the project foundation for webcam-based hand tracking. It opens the default webcam, detects one hand with MediaPipe Hands, draws hand landmarks on the live frame, and exits safely with `q` or `Esc`.
+Phase 2 adds a virtual drawing canvas on top of webcam-based hand tracking. The app opens the default webcam, detects one hand with MediaPipe Hands, follows the index fingertip, draws strokes on a separate canvas, and exits safely with `q` or `Esc`.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ Install dependencies:
 D:\Python3\python.exe -m pip install -r requirements.txt
 ```
 
-## Run Phase 1
+## Run
 
 ```powershell
 D:\Python3\python.exe main.py
@@ -21,6 +21,8 @@ D:\Python3\python.exe main.py
 
 Controls:
 
+- Move index fingertip: draw
+- `c`: clear drawing canvas
 - `q`: quit
 - `Esc`: quit
 
@@ -32,10 +34,13 @@ Implemented:
 - MediaPipe hand landmark detection
 - Local MediaPipe Tasks model at `models/hand_landmarker.task`
 - Debug landmark drawing
+- Index fingertip drawing on a separate virtual canvas
+- Clear canvas with `c`
+- 16:9 preview frame that preserves camera aspect ratio
+- Basic status overlay with hand detection state and FPS
 - Safe camera/window cleanup
 
 Not implemented yet:
 
-- Drawing canvas
 - Gesture-based drawing mode
 - Color, eraser, brush size, or save image tools

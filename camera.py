@@ -9,6 +9,9 @@ import cv2
 class CameraConfig:
     camera_index: int = 0
     mirror: bool = True
+    width: int = 1280
+    height: int = 720
+    fps: int = 30
 
 
 class Camera:
@@ -19,7 +22,11 @@ class Camera:
         self._capture: cv2.VideoCapture | None = None
 
     def open(self) -> bool:
-        self._capture = cv2.VideoCapture(self.config.camera_index)
+        self._capture = cv2.VideoCapture(self.config.camera_index, cv2.CAP_DSHOW)
+        if self.is_opened:
+            self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
+            self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)
+            self._capture.set(cv2.CAP_PROP_FPS, self.config.fps)
         return self.is_opened
 
     @property
