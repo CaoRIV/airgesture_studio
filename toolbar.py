@@ -37,11 +37,11 @@ class GestureToolbar:
 
     def buttons(self, display_width: int) -> list[ToolbarButton]:
         specs = [
-            (ToolbarAction.RED, "Red", (40, 80, 255)),
-            (ToolbarAction.GREEN, "Green", (70, 220, 90)),
-            (ToolbarAction.BLUE, "Blue", (255, 140, 60)),
-            (ToolbarAction.YELLOW, "Yellow", (50, 230, 245)),
-            (ToolbarAction.WHITE, "White", (245, 245, 245)),
+            (ToolbarAction.RED, "Red", (0, 0, 255)),
+            (ToolbarAction.GREEN, "Green", (0, 230, 70)),
+            (ToolbarAction.BLUE, "Blue", (255, 80, 0)),
+            (ToolbarAction.YELLOW, "Yellow", (0, 235, 255)),
+            (ToolbarAction.WHITE, "White", (255, 255, 255)),
             (ToolbarAction.ERASER, "Erase", (210, 220, 230)),
             (ToolbarAction.THIN, "Thin", (160, 180, 210)),
             (ToolbarAction.THICK, "Thick", (160, 180, 210)),
