@@ -6,6 +6,7 @@ from enum import Enum
 import cv2
 import numpy as np
 
+from calibration import CalibrationConfig, run_calibration
 import game_main
 import main as drawing_main
 
@@ -89,9 +90,11 @@ def main() -> int:
 def run_action(action: MenuAction) -> None:
     cv2.destroyWindow(WINDOW_NAME)
     if action == MenuAction.DRAWING:
-        drawing_main.main()
+        if run_calibration(CalibrationConfig("Air Drawing needs one clearly visible hand.", 1)):
+            drawing_main.main()
     elif action == MenuAction.PUZZLE:
-        game_main.main()
+        if run_calibration(CalibrationConfig("Gesture Puzzle works best with two visible hands.", 2)):
+            game_main.main()
 
 
 def render_menu(selected_index: int):
