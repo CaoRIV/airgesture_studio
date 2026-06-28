@@ -30,6 +30,13 @@ Menu controls:
 - `Enter`: open selected item
 - `Q` or `Esc`: quit
 
+Calibration:
+
+- Choosing a mode from the main menu opens a webcam calibration screen first
+- `Space`: continue when status is ready
+- `Enter`: skip calibration and continue anyway
+- `Q` or `Esc`: cancel back to the menu
+
 ## Run Air Drawing
 
 ```powershell
@@ -78,6 +85,7 @@ Implemented:
 - MediaPipe hand landmark detection
 - Local MediaPipe Tasks model at `models/hand_landmarker.task`
 - Home menu launcher for selecting drawing or puzzle mode
+- Webcam calibration screen with hand-count and brightness checks
 - Gesture-controlled 3x3 webcam puzzle game
 - Pinch gesture tile selection and swapping
 - Puzzle timer, move counter, cursor, and victory screen
