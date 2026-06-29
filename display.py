@@ -116,7 +116,7 @@ def draw_app_overlay(
     )
     cv2.putText(
         display_frame,
-        "1 finger: Draw   2 fingers: Move/Select toolbar   C: Clear   Q / Esc: Exit",
+        "Pinch: Draw/Erase   2 fingers: Move/Select toolbar   C: Clear   Q / Esc: Exit",
         (28, display_frame.shape[0] - 24),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.58,

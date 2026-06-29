@@ -10,6 +10,7 @@ import cv2
 from camera import Camera, CameraConfig
 from canvas import DrawingCanvas
 from display import DisplayConfig, draw_app_overlay, fit_frame_to_display, frame_point_to_display
+from game_gesture import PinchGesture
 from gesture_controller import GestureController, GestureMode
 from hand_tracker import HandTracker, HandTrackerConfig
 from letter_recognizer import LetterRecognizer
@@ -21,6 +22,7 @@ WINDOW_NAME = "Hand Gesture Air Drawing - Gesture Toolbar"
 OUTPUT_DIR = Path("outputs") / "saved_drawings"
 DRAW_GRACE_FRAMES = 4
 MAX_BRIDGE_DISTANCE = 180
+THUMB_TIP = 4
 TOOL_COLORS = {
     ToolbarAction.RED: (0, 0, 255),
     ToolbarAction.GREEN: (0, 230, 70),
@@ -85,6 +87,7 @@ def main() -> int:
     gesture_controller = GestureController()
     letter_recognizer = LetterRecognizer()
     toolbar = GestureToolbar()
+    pinch_detector = PinchGesture(pinch_threshold=46.0, release_threshold=68.0)
     point_smoother = PointSmoother(SmoothingConfig(alpha=0.35))
     current_color_action = ToolbarAction.RED
     active_toolbar_action = ToolbarAction.RED
@@ -118,7 +121,9 @@ def main() -> int:
                 results = hand_tracker.detect(frame)
                 gesture_state = gesture_controller.analyze(results, frame.shape)
                 index_tip = point_smoother.update(gesture_state.index_tip)
-                raw_drawing_active = gesture_state.mode == GestureMode.DRAW
+                thumb_tip = hand_tracker.get_landmark_pixel(results, frame.shape, THUMB_TIP)
+                pinch = pinch_detector.update(thumb_tip, index_tip)
+                raw_drawing_active = pinch.active
                 keep_stroke_open = (
                     gesture_state.mode == GestureMode.IDLE
                     and previous_draw_point is not None
@@ -171,7 +176,7 @@ def main() -> int:
                     frame_bounds,
                 )
                 hovered_action = toolbar.hit_test(
-                    cursor_display_point if gesture_state.mode == GestureMode.MOVE else None,
+                    cursor_display_point if gesture_state.mode == GestureMode.MOVE and not pinch.active else None,
                     display_frame.shape[1],
                 )
                 selected_action = toolbar.select(hovered_action, current_time)
@@ -221,7 +226,7 @@ def main() -> int:
                     display_frame,
                     frame_bounds,
                     hand_detected=hand_detected,
-                    mode=gesture_state.mode.value,
+                    mode="Draw" if pinch.active else gesture_state.mode.value,
                     fps=smoothed_fps,
                 )
                 draw_toolbar(

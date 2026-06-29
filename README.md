@@ -45,9 +45,9 @@ D:\Python3\python.exe main.py
 
 Air drawing controls:
 
-- Index finger only: draw
+- Pinch thumb + index finger: draw or erase
 - Index + middle fingers: move cursor without drawing and select toolbar items
-- Draw a simple letter or digit, then leave draw mode: snap it into a clean symbol when recognized
+- Draw a simple letter or digit, then release pinch: snap it into a clean symbol when recognized
 - `c`: clear drawing canvas
 - `q`: quit
 - `Esc`: quit
@@ -94,6 +94,7 @@ Implemented:
 - Opaque high-saturation drawing colors for stronger strokes
 - Short tracking-drop tolerance to reduce broken strokes
 - Stroke-based cleanup after each completed drawing gesture
+- Pinch-to-draw gesture with hysteresis for fewer accidental strokes
 - Gesture modes for draw, move, and idle
 - Gesture toolbar for colors, eraser, brush size, clear, and save
 - Template recognition for `C`, `O`, `L`, `V`, `Z`, `S`, `1`, `2`, and `3`
