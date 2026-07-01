@@ -8,14 +8,34 @@ def draw_capture_hud(
     hand_count: int,
     capture_message: str,
     capture_progress: float,
+    difficulty: int,
 ) -> None:
     _draw_top_bar(frame)
     _put(frame, "Gesture Puzzle", (28, 46), 0.95, (245, 247, 250), 2)
-    status = f"{capture_message}   Space/Enter/C: fallback capture"
+    status = f"{capture_message}   3/4: difficulty   Space/Enter/C: fallback capture"
     color = (0, 230, 140) if hand_count >= 2 else (0, 180, 255)
     _put(frame, status, (28, frame.shape[0] - 30), 0.72, color, 2)
-    _put(frame, f"Hands: {hand_count}/2", (frame.shape[1] - 450, 46), 0.72, color, 2)
+    _put(frame, f"Hands: {hand_count}/2", (frame.shape[1] - 500, 46), 0.72, color, 2)
+    _put(frame, f"Grid: {difficulty}x{difficulty}", (frame.shape[1] - 310, 46), 0.72, (245, 247, 250), 2)
     _draw_progress(frame, capture_progress)
+
+
+def draw_countdown_hud(frame, remaining_seconds: float, difficulty: int) -> None:
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (0, 0), (frame.shape[1], frame.shape[0]), (8, 10, 14), -1)
+    cv2.addWeighted(overlay, 0.50, frame, 0.50, 0, frame)
+    center_x = frame.shape[1] // 2
+    center_y = frame.shape[0] // 2
+    number = max(1, int(remaining_seconds) + 1)
+    _put_center(frame, str(number), (center_x, center_y - 30), 3.2, (0, 230, 140), 7)
+    _put_center(
+        frame,
+        f"Creating {difficulty}x{difficulty} puzzle...",
+        (center_x, center_y + 92),
+        0.86,
+        (245, 247, 250),
+        2,
+    )
 
 
 def draw_capture_gesture(frame, points, bounds) -> None:
@@ -44,18 +64,20 @@ def draw_play_hud(
     moves: int,
     pinch_active: bool,
     selected_tile: int | None,
+    difficulty: int,
 ) -> None:
     _draw_top_bar(frame)
     _put(frame, "Gesture Puzzle", (28, 46), 0.95, (245, 247, 250), 2)
     _put(frame, f"Time: {elapsed_seconds:05.1f}s", (410, 45), 0.68, (245, 247, 250), 2)
     _put(frame, f"Moves: {moves}", (610, 45), 0.68, (245, 247, 250), 2)
+    _put(frame, f"Grid: {difficulty}x{difficulty}", (770, 45), 0.68, (245, 247, 250), 2)
     pinch_text = "Pinch: Grab" if pinch_active else "Pinch: Open"
     pinch_color = (0, 230, 140) if pinch_active else (0, 180, 255)
-    _put(frame, pinch_text, (770, 45), 0.68, pinch_color, 2)
+    _put(frame, pinch_text, (940, 45), 0.68, pinch_color, 2)
 
     selected_text = "Selected: None" if selected_tile is None else f"Selected: {selected_tile + 1}"
     _put(frame, selected_text, (28, frame.shape[0] - 30), 0.64, (225, 230, 238), 1)
-    _put(frame, "Pinch tile -> drag to another tile -> release to swap", (300, frame.shape[0] - 30), 0.64, (225, 230, 238), 1)
+    _put(frame, "Pinch tile -> drag to another tile -> release to swap   R: Restart", (300, frame.shape[0] - 30), 0.64, (225, 230, 238), 1)
 
 
 def draw_victory_hud(frame, elapsed_seconds: float, moves: int) -> None:

@@ -13,7 +13,7 @@ from display import DisplayConfig, draw_app_overlay, fit_frame_to_display, frame
 from game_gesture import PinchGesture
 from gesture_controller import GestureController, GestureMode
 from hand_tracker import HandTracker, HandTrackerConfig
-from letter_recognizer import LetterRecognizer
+from letter_recognizer import LetterRecognizer, RecognizedLetter
 from smoothing import PointSmoother, SmoothingConfig
 from toolbar import GestureToolbar, ToolbarAction, draw_toolbar
 
@@ -30,6 +30,7 @@ TOOL_COLORS = {
     ToolbarAction.YELLOW: (0, 235, 255),
     ToolbarAction.WHITE: (255, 255, 255),
 }
+DETECTION_DISPLAY_SECONDS = 2.5
 
 
 def should_quit(key_code: int) -> bool:
@@ -53,18 +54,19 @@ def finalize_stroke(
     drawing_canvas: DrawingCanvas,
     recognizer: LetterRecognizer,
     stroke_points: list[tuple[int, int]],
-) -> None:
+) -> RecognizedLetter | None:
     if not stroke_points:
-        return
+        return None
 
     recognized = recognizer.recognize(stroke_points)
     if recognized is not None:
         drawing_canvas.clear_stroke()
         drawing_canvas.draw_clean_letter(recognized.letter, recognized.bounds)
-        return
+        return recognized
 
     cleaned_points = recognizer.clean_points(stroke_points)
     drawing_canvas.commit_clean_stroke(cleaned_points)
+    return None
 
 
 def main() -> int:
@@ -95,6 +97,8 @@ def main() -> int:
     previous_draw_point: tuple[int, int] | None = None
     missing_draw_frames = 0
     stroke_points: list[tuple[int, int]] = []
+    last_detected_symbol: str | None = None
+    last_detected_until = 0.0
     drawing_canvas.set_brush_color(TOOL_COLORS[current_color_action])
 
     if not camera.open():
@@ -141,7 +145,14 @@ def main() -> int:
                                 drawing_canvas.draw_line(previous_draw_point, index_tip)
                                 stroke_points.append(index_tip)
                         elif not erasing:
-                            finalize_stroke(drawing_canvas, letter_recognizer, stroke_points)
+                            recognized = finalize_stroke(
+                                drawing_canvas,
+                                letter_recognizer,
+                                stroke_points,
+                            )
+                            if recognized is not None:
+                                last_detected_symbol = recognized.letter
+                                last_detected_until = time.perf_counter() + DETECTION_DISPLAY_SECONDS
                             drawing_canvas.clear_stroke()
                             stroke_points = [index_tip]
                     elif not erasing:
@@ -152,7 +163,14 @@ def main() -> int:
                     missing_draw_frames += 1
                 else:
                     if not erasing:
-                        finalize_stroke(drawing_canvas, letter_recognizer, stroke_points)
+                        recognized = finalize_stroke(
+                            drawing_canvas,
+                            letter_recognizer,
+                            stroke_points,
+                        )
+                        if recognized is not None:
+                            last_detected_symbol = recognized.letter
+                            last_detected_until = time.perf_counter() + DETECTION_DISPLAY_SECONDS
                     stroke_points = []
                     previous_draw_point = None
                     missing_draw_frames = 0
@@ -215,6 +233,8 @@ def main() -> int:
                     stroke_points = []
                     previous_draw_point = None
                     missing_draw_frames = 0
+                    last_detected_symbol = None
+                    last_detected_until = 0.0
                 elif selected_action == ToolbarAction.SAVE:
                     drawing_canvas.save(OUTPUT_DIR, save_filename())
                     stroke_points = []
@@ -222,12 +242,18 @@ def main() -> int:
                     missing_draw_frames = 0
 
                 hand_detected = bool(results.hand_landmarks)
+                detected_symbol = (
+                    last_detected_symbol
+                    if last_detected_symbol is not None and current_time <= last_detected_until
+                    else None
+                )
                 draw_app_overlay(
                     display_frame,
                     frame_bounds,
                     hand_detected=hand_detected,
                     mode="Draw" if pinch.active else gesture_state.mode.value,
                     fps=smoothed_fps,
+                    detected_symbol=detected_symbol,
                 )
                 draw_toolbar(
                     display_frame,
@@ -246,6 +272,8 @@ def main() -> int:
                     stroke_points = []
                     previous_draw_point = None
                     missing_draw_frames = 0
+                    last_detected_symbol = None
+                    last_detected_until = 0.0
     finally:
         camera.release()
         cv2.destroyAllWindows()

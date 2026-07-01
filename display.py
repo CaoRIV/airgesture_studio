@@ -59,6 +59,7 @@ def draw_app_overlay(
     hand_detected: bool,
     mode: str,
     fps: float,
+    detected_symbol: str | None = None,
 ) -> None:
     x, y, width, height = frame_bounds
 
@@ -94,6 +95,17 @@ def draw_app_overlay(
         2,
         cv2.LINE_AA,
     )
+    if detected_symbol is not None:
+        cv2.putText(
+            display_frame,
+            f"Phat hien: {detected_symbol}",
+            (430, 45),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.82,
+            (80, 240, 150),
+            2,
+            cv2.LINE_AA,
+        )
     cv2.putText(
         display_frame,
         status,

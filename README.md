@@ -47,7 +47,8 @@ Air drawing controls:
 
 - Pinch thumb + index finger: draw or erase
 - Index + middle fingers: move cursor without drawing and select toolbar items
-- Draw a simple letter or digit, then release pinch: snap it into a clean symbol when recognized
+- Draw a one-stroke letter or digit (`A-Z`, `0-9`), then release pinch: snap it into a clean symbol when recognized
+- The top overlay briefly shows `Phat hien: X` after a symbol is detected
 - `c`: clear drawing canvas
 - `q`: quit
 - `Esc`: quit
@@ -69,12 +70,14 @@ D:\Python3\python.exe game_main.py
 Puzzle controls:
 
 - Two-hand capture gesture: place both thumbs + both index fingers near the center, spread both hands outward, then hold still to capture
+- `3` / `4`: choose 3x3 or 4x4 difficulty before capture
 - `Space`, `Enter`, or `C`: fallback capture
 - The HUD shows `Hands: 0/2`, `1/2`, or `2/2`; the two-hand gesture needs `2/2`
+- A short countdown runs after capture before the puzzle starts
 - Move hand: control cursor
 - Pinch on a tile: grab/select tile
 - Release over another tile: swap tiles
-- `r`: restart after victory
+- `r`: restart during play or after victory
 - `q` or `Esc`: quit
 
 ## Current Scope
@@ -87,6 +90,8 @@ Implemented:
 - Home menu launcher for selecting drawing or puzzle mode
 - Webcam calibration screen with hand-count and brightness checks
 - Gesture-controlled 3x3 webcam puzzle game
+- 3x3 and 4x4 puzzle difficulty selection
+- Countdown before puzzle start
 - Pinch gesture tile selection and swapping
 - Puzzle timer, move counter, cursor, and victory screen
 - Debug landmark drawing
@@ -97,7 +102,7 @@ Implemented:
 - Pinch-to-draw gesture with hysteresis for fewer accidental strokes
 - Gesture modes for draw, move, and idle
 - Gesture toolbar for colors, eraser, brush size, clear, and save
-- Template recognition for `C`, `O`, `L`, `V`, `Z`, `S`, `1`, `2`, and `3`
+- Template recognition for one-stroke `A-Z` letters and `0-9` digits
 - Clear canvas with `c`
 - 16:9 preview frame that preserves camera aspect ratio
 - Basic status overlay with hand detection state and FPS
@@ -106,4 +111,4 @@ Implemented:
 Not implemented yet:
 
 - Recognition for full handwriting words
-- Handwriting or digit recognition model
+- General OCR or handwriting recognition model
