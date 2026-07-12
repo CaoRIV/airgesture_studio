@@ -86,6 +86,10 @@ Implemented:
 
 - Webcam capture with mirrored preview
 - MediaPipe hand landmark detection
+- MediaPipe video-mode tracking with monotonic frame timestamps
+- Adaptive One Euro filtering across all 21 hand landmarks
+- Separate tracking profiles for drawing, puzzle, and calibration
+- Two-frame cursor and pinch dropout tolerance for brief detection loss
 - Local MediaPipe Tasks model at `models/hand_landmarker.task`
 - Home menu launcher for selecting drawing or puzzle mode
 - Webcam calibration screen with hand-count and brightness checks

@@ -7,15 +7,21 @@ import time
 
 import cv2
 
-from camera import Camera, CameraConfig
+from camera import Camera
 from canvas import DrawingCanvas
 from display import DisplayConfig, draw_app_overlay, fit_frame_to_display, frame_point_to_display
 from game_gesture import PinchGesture
 from gesture_controller import GestureController, GestureMode
-from hand_tracker import HandTracker, HandTrackerConfig
+from hand_tracker import HandTracker
 from letter_recognizer import LetterRecognizer, RecognizedLetter
-from smoothing import PointSmoother, SmoothingConfig
+from smoothing import PointSmoother
 from toolbar import GestureToolbar, ToolbarAction, draw_toolbar
+from tracking_settings import (
+    AIR_DRAWING_CURSOR_CONFIG,
+    AIR_DRAWING_PINCH_CONFIG,
+    AIR_DRAWING_TRACKER_CONFIG,
+    CAMERA_CONFIG,
+)
 
 
 WINDOW_NAME = "Hand Gesture Air Drawing - Gesture Toolbar"
@@ -71,26 +77,13 @@ def finalize_stroke(
 
 def main() -> int:
     display_config = DisplayConfig(width=1280, height=720)
-    camera_config = CameraConfig(
-        camera_index=0,
-        mirror=True,
-        width=display_config.width,
-        height=display_config.height,
-        fps=30,
-    )
-    hand_tracker_config = HandTrackerConfig(
-        max_num_hands=1,
-        min_detection_confidence=0.7,
-        min_tracking_confidence=0.5,
-    )
-
-    camera = Camera(camera_config)
+    camera = Camera(CAMERA_CONFIG)
     drawing_canvas = DrawingCanvas()
     gesture_controller = GestureController()
     letter_recognizer = LetterRecognizer()
     toolbar = GestureToolbar()
-    pinch_detector = PinchGesture(pinch_threshold=46.0, release_threshold=68.0)
-    point_smoother = PointSmoother(SmoothingConfig(alpha=0.35))
+    pinch_detector = PinchGesture(config=AIR_DRAWING_PINCH_CONFIG)
+    point_smoother = PointSmoother(AIR_DRAWING_CURSOR_CONFIG)
     current_color_action = ToolbarAction.RED
     active_toolbar_action = ToolbarAction.RED
     erasing = False
@@ -111,7 +104,7 @@ def main() -> int:
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
     try:
-        with HandTracker(hand_tracker_config) as hand_tracker:
+        with HandTracker(AIR_DRAWING_TRACKER_CONFIG) as hand_tracker:
             previous_time = time.perf_counter()
             smoothed_fps = 0.0
 

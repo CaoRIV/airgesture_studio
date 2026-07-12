@@ -5,8 +5,9 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from camera import Camera, CameraConfig
-from hand_tracker import HandTracker, HandTrackerConfig
+from camera import Camera
+from hand_tracker import HandTracker
+from tracking_settings import CAMERA_CONFIG, calibration_tracker_config
 
 
 WINDOW_NAME = "AirGesture Calibration"
@@ -21,17 +22,12 @@ class CalibrationConfig:
 
 
 def run_calibration(config: CalibrationConfig) -> bool:
-    camera = Camera(CameraConfig(camera_index=0, mirror=True, width=1280, height=720, fps=30))
+    camera = Camera(CAMERA_CONFIG)
     if not camera.open():
         print("Error: Could not open webcam for calibration.")
         return False
 
-    hand_tracker_config = HandTrackerConfig(
-        max_num_hands=max(1, config.required_hands),
-        min_detection_confidence=0.55,
-        min_hand_presence_confidence=0.40,
-        min_tracking_confidence=0.40,
-    )
+    hand_tracker_config = calibration_tracker_config(config.required_hands)
 
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
