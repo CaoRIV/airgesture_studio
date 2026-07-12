@@ -17,6 +17,7 @@ class ToolbarAction(Enum):
     ERASER = "Eraser"
     THIN = "Thin"
     THICK = "Thick"
+    UNDO = "Undo"
     CLEAR = "Clear"
     SAVE = "Save"
 
@@ -47,6 +48,7 @@ class GestureToolbar:
             (ToolbarAction.ERASER, "Erase", (210, 220, 230)),
             (ToolbarAction.THIN, "Thin", (160, 180, 210)),
             (ToolbarAction.THICK, "Thick", (160, 180, 210)),
+            (ToolbarAction.UNDO, "Undo", (255, 190, 90)),
             (ToolbarAction.CLEAR, "Clear", (120, 150, 255)),
             (ToolbarAction.SAVE, "Save", (120, 220, 180)),
         ]
@@ -182,6 +184,10 @@ def draw_tool_icon(
         cv2.line(frame, (x + 3, center[1]), (x + width - 3, center[1]), line_color, 2, cv2.LINE_AA)
     elif action == ToolbarAction.THICK:
         cv2.line(frame, (x + 3, center[1]), (x + width - 3, center[1]), line_color, 6, cv2.LINE_AA)
+    elif action == ToolbarAction.UNDO:
+        cv2.ellipse(frame, center, (8, 8), 0, 210, 520, line_color, 2, cv2.LINE_AA)
+        cv2.line(frame, (x + 3, y + 7), (x + 9, y + 4), line_color, 2, cv2.LINE_AA)
+        cv2.line(frame, (x + 3, y + 7), (x + 7, y + 13), line_color, 2, cv2.LINE_AA)
     elif action == ToolbarAction.CLEAR:
         cv2.line(frame, (x + 4, y + 4), (x + width - 4, y + height - 4), line_color, 2, cv2.LINE_AA)
         cv2.line(frame, (x + width - 4, y + 4), (x + 4, y + height - 4), line_color, 2, cv2.LINE_AA)

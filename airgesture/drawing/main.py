@@ -9,7 +9,7 @@ import cv2
 from airgesture.config import SETTINGS
 from airgesture.core.camera import Camera
 from airgesture.core.hand_tracker import HandTracker
-from airgesture.core.smoothing import PointSmoother
+from airgesture.core.smoothing import AdaptivePointSmoother
 from airgesture.drawing.canvas import CanvasConfig, DrawingCanvas
 from airgesture.drawing.display import (
     DisplayConfig,
@@ -19,6 +19,7 @@ from airgesture.drawing.display import (
 )
 from airgesture.drawing.gesture_controller import GestureController, GestureMode
 from airgesture.drawing.letter_recognizer import LetterRecognizer, RecognizedLetter
+from airgesture.drawing.stroke_state import StrokeEndDebouncer
 from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction, draw_toolbar
 from airgesture.paths import OUTPUTS_DIR
 from airgesture.puzzle.gesture import PinchGesture
@@ -42,6 +43,10 @@ def should_quit(key_code: int) -> bool:
 
 def should_clear(key_code: int) -> bool:
     return key_code in (ord("c"), ord("C"))
+
+
+def should_undo(key_code: int) -> bool:
+    return key_code in (26, ord("u"), ord("U"), ord("z"), ord("Z"))
 
 
 def save_filename() -> str:
@@ -84,18 +89,23 @@ def main() -> int:
         CanvasConfig(
             brush_thickness=drawing_settings.default_brush_size,
             eraser_thickness=drawing_settings.eraser_size,
+            max_history_steps=drawing_settings.max_undo_steps,
         )
     )
     gesture_controller = GestureController()
     letter_recognizer = LetterRecognizer()
     toolbar = GestureToolbar()
     pinch_detector = PinchGesture(config=air_settings.pinch)
-    point_smoother = PointSmoother(air_settings.cursor_smoothing)
+    point_smoother = AdaptivePointSmoother(air_settings.adaptive_smoothing)
+    stroke_debouncer = StrokeEndDebouncer(
+        delay_seconds=drawing_settings.stroke_end_debounce_seconds,
+        grace_frames=drawing_settings.draw_grace_frames,
+    )
     current_color_action = ToolbarAction.RED
     active_toolbar_action = ToolbarAction.RED
     erasing = False
     previous_draw_point: tuple[int, int] | None = None
-    missing_draw_frames = 0
+    erase_history_started = False
     stroke_points: list[tuple[int, int]] = []
     last_detected_symbol: str | None = None
     last_detected_until = 0.0
@@ -116,6 +126,7 @@ def main() -> int:
             smoothed_fps = 0.0
 
             while True:
+                frame_time = time.perf_counter()
                 success, frame = camera.read()
                 if not success:
                     print("Error: Could not read frame from webcam.")
@@ -124,22 +135,22 @@ def main() -> int:
                 drawing_canvas.ensure_size(frame.shape)
                 results = hand_tracker.detect(frame)
                 gesture_state = gesture_controller.analyze(results, frame.shape)
-                index_tip = point_smoother.update(gesture_state.index_tip)
+                index_tip = point_smoother.update(
+                    gesture_state.index_tip,
+                    timestamp_seconds=frame_time,
+                )
                 thumb_tip = hand_tracker.get_landmark_pixel(results, frame.shape, THUMB_TIP)
                 pinch = pinch_detector.update(thumb_tip, index_tip)
                 raw_drawing_active = pinch.active
-                keep_stroke_open = (
-                    gesture_state.mode == GestureMode.IDLE
-                    and previous_draw_point is not None
-                    and missing_draw_frames < drawing_settings.draw_grace_frames
-                )
 
                 if raw_drawing_active and index_tip is not None:
-                    missing_draw_frames = 0
+                    stroke_debouncer.mark_active()
                     if previous_draw_point is not None:
                         bridge_distance = point_distance(previous_draw_point, index_tip)
                         if bridge_distance <= drawing_settings.max_bridge_distance:
                             if erasing:
+                                if not erase_history_started:
+                                    erase_history_started = drawing_canvas.begin_history_action()
                                 drawing_canvas.erase_line(previous_draw_point, index_tip)
                             else:
                                 drawing_canvas.draw_line(previous_draw_point, index_tip)
@@ -158,13 +169,16 @@ def main() -> int:
                                 )
                             drawing_canvas.clear_stroke()
                             stroke_points = [index_tip]
+                        elif erasing:
+                            erase_history_started = False
                     elif not erasing:
                         drawing_canvas.clear_stroke()
                         stroke_points = [index_tip]
                     previous_draw_point = index_tip
-                elif keep_stroke_open:
-                    missing_draw_frames += 1
-                else:
+                elif previous_draw_point is not None and stroke_debouncer.should_finalize(
+                    frame_time,
+                    has_open_stroke=True,
+                ):
                     if not erasing:
                         recognized = finalize_stroke(
                             drawing_canvas,
@@ -179,7 +193,10 @@ def main() -> int:
                             )
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
+                elif previous_draw_point is None:
+                    stroke_debouncer.reset()
 
                 frame = drawing_canvas.compose(frame)
                 hand_tracker.draw_landmarks(frame, results)
@@ -213,39 +230,55 @@ def main() -> int:
                     drawing_canvas.set_brush_color(TOOL_COLORS[selected_action])
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
                 elif selected_action == ToolbarAction.ERASER:
                     active_toolbar_action = ToolbarAction.ERASER
                     erasing = True
                     drawing_canvas.clear_stroke()
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
                 elif selected_action == ToolbarAction.THIN:
                     drawing_canvas.clear_stroke()
                     drawing_canvas.set_brush_thickness(drawing_settings.thin_brush_size)
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
                 elif selected_action == ToolbarAction.THICK:
                     drawing_canvas.clear_stroke()
                     drawing_canvas.set_brush_thickness(drawing_settings.thick_brush_size)
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
+                elif selected_action == ToolbarAction.UNDO:
+                    drawing_canvas.clear_stroke()
+                    drawing_canvas.undo()
+                    stroke_points = []
+                    previous_draw_point = None
+                    erase_history_started = False
+                    stroke_debouncer.reset()
+                    last_detected_symbol = None
+                    last_detected_until = 0.0
                 elif selected_action == ToolbarAction.CLEAR:
                     drawing_canvas.clear()
                     point_smoother.reset()
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
                     last_detected_symbol = None
                     last_detected_until = 0.0
                 elif selected_action == ToolbarAction.SAVE:
+                    drawing_canvas.clear_stroke()
                     drawing_canvas.save(OUTPUT_DIR, save_filename())
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
 
                 hand_detected = bool(results.hand_landmarks)
                 detected_symbol = (
@@ -277,7 +310,17 @@ def main() -> int:
                     point_smoother.reset()
                     stroke_points = []
                     previous_draw_point = None
-                    missing_draw_frames = 0
+                    erase_history_started = False
+                    stroke_debouncer.reset()
+                    last_detected_symbol = None
+                    last_detected_until = 0.0
+                elif should_undo(key_code):
+                    drawing_canvas.clear_stroke()
+                    drawing_canvas.undo()
+                    stroke_points = []
+                    previous_draw_point = None
+                    erase_history_started = False
+                    stroke_debouncer.reset()
                     last_detected_symbol = None
                     last_detected_until = 0.0
     finally:

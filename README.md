@@ -21,16 +21,17 @@ D:\Python3\python.exe -m pip install -r requirements.txt
 Runtime thresholds are stored in `airgesture/config/settings.json`. Restart the application after editing it.
 
 - `camera`: camera index, resolution, FPS, mirroring, and frame buffer size
-- `air_drawing.cursor_smoothing`: cursor smoothing alpha and missing-frame tolerance
+- `air_drawing.adaptive_smoothing`: slow/fast smoothing alpha, speed range, and missing-frame tolerance
 - `air_drawing.pinch`: pinch/release distances and missing-frame tolerance
-- `air_drawing.drawing`: stroke bridging, recognition display time, brush, and eraser sizes
+- `air_drawing.drawing`: stroke debounce, bridging, undo depth, recognition display time, brush, and eraser sizes
 - `puzzle.capture`: spread ratio, stable-frame count, centering, and motion thresholds
 - `puzzle.game`: countdown, default difficulty, and board size
 - `tracker.landmark_filter`: adaptive landmark smoothing values for each mode
 
 Useful tuning directions:
 
-- Increase smoothing `alpha` for faster response; decrease it for steadier movement.
+- For the puzzle cursor, increase smoothing `alpha` for faster response; decrease it for steadier movement.
+- Increase `slow_alpha` if slow drawing feels heavy; increase `fast_alpha` if fast strokes lag behind.
 - Increase `pinch_threshold` if pinching is hard to trigger. Keep `release_threshold` higher.
 - Decrease `spread_ratio_required` if puzzle auto-capture is difficult to activate.
 - Decrease `stable_frames_required` or increase motion thresholds if holding still is difficult.
@@ -72,6 +73,7 @@ Air drawing controls:
 - Draw a one-stroke letter or digit (`A-Z`, `0-9`), then release pinch: snap it into a clean symbol when recognized
 - The top overlay briefly shows `Phat hien: X` after a symbol is detected
 - `c`: clear drawing canvas
+- `u` or `z`: undo the last committed drawing or eraser stroke
 - `q`: quit
 - `Esc`: quit
 
@@ -82,6 +84,7 @@ Toolbar:
 - `Thin`, `Thick`: change brush size
 - `Clear`: clear the canvas
 - `Save`: save the drawing to `outputs/saved_drawings`
+- `Undo`: restore the canvas before the last drawing or eraser stroke
 
 ## Run Gesture Puzzle
 
@@ -122,6 +125,9 @@ Implemented:
 - Puzzle timer, move counter, cursor, and victory screen
 - Debug landmark drawing
 - Smoothed index fingertip drawing on a separate virtual canvas
+- Velocity-adaptive drawing smoothing for steady slow strokes and responsive fast strokes
+- Configurable stroke-end debounce to avoid premature recognition
+- Undo history for drawing and eraser strokes
 - Opaque high-saturation drawing colors for stronger strokes
 - Short tracking-drop tolerance to reduce broken strokes
 - Stroke-based cleanup after each completed drawing gesture

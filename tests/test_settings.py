@@ -15,6 +15,8 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.camera.fps, 30)
         self.assertEqual(settings.air_drawing.drawing.thin_brush_size, 7)
+        self.assertAlmostEqual(settings.air_drawing.adaptive_smoothing.slow_alpha, 0.18)
+        self.assertEqual(settings.air_drawing.drawing.max_undo_steps, 20)
         self.assertEqual(settings.puzzle.capture.stable_frames_required, 5)
         self.assertAlmostEqual(settings.puzzle.capture.spread_ratio_required, 0.34)
 

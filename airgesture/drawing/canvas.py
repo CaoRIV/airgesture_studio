@@ -13,6 +13,13 @@ class CanvasConfig:
     brush_thickness: int = 10
     eraser_thickness: int = 34
     cursor_color: tuple[int, int, int] = (255, 255, 255)
+    max_history_steps: int = 20
+
+    def __post_init__(self) -> None:
+        if self.brush_thickness < 2 or self.eraser_thickness < 2:
+            raise ValueError("brush and eraser thickness must be at least 2")
+        if self.max_history_steps < 1:
+            raise ValueError("max_history_steps must be at least 1")
 
 
 class DrawingCanvas:
@@ -22,17 +29,43 @@ class DrawingCanvas:
         self.config = config or CanvasConfig()
         self._canvas = None
         self._stroke_canvas = None
+        self._history: list[np.ndarray] = []
 
     def ensure_size(self, frame_shape) -> None:
         height, width = frame_shape[:2]
         if self._canvas is None or self._canvas.shape[:2] != (height, width):
             self._canvas = np.zeros((height, width, 3), dtype=np.uint8)
             self._stroke_canvas = np.zeros((height, width, 3), dtype=np.uint8)
+            self._history.clear()
 
-    def clear(self) -> None:
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._history)
+
+    def clear(self, clear_history: bool = True) -> None:
         if self._canvas is not None:
             self._canvas[:] = 0
         self.clear_stroke()
+        if clear_history:
+            self._history.clear()
+
+    def begin_history_action(self) -> bool:
+        if self._canvas is None:
+            return False
+
+        self._history.append(self._canvas.copy())
+        overflow = len(self._history) - self.config.max_history_steps
+        if overflow > 0:
+            del self._history[:overflow]
+        return True
+
+    def undo(self) -> bool:
+        self.clear_stroke()
+        if self._canvas is None or not self._history:
+            return False
+
+        self._canvas = self._history.pop()
+        return True
 
     def clear_stroke(self) -> None:
         if self._stroke_canvas is not None:
@@ -43,6 +76,10 @@ class DrawingCanvas:
             return
 
         stroke_mask = np.any(self._stroke_canvas > 0, axis=2)
+        if not np.any(stroke_mask):
+            self.clear_stroke()
+            return
+        self.begin_history_action()
         self._canvas[stroke_mask] = self._stroke_canvas[stroke_mask]
         self.clear_stroke()
 
@@ -54,6 +91,7 @@ class DrawingCanvas:
         if len(points) < 2:
             return
 
+        self.begin_history_action()
         for start_point, end_point in zip(points, points[1:]):
             cv2.line(
                 self._canvas,
@@ -108,6 +146,7 @@ class DrawingCanvas:
         if width <= 0 or height <= 0:
             return
 
+        self.begin_history_action()
         thickness = max(self.config.brush_thickness + 2, 8)
         font = cv2.FONT_HERSHEY_SIMPLEX
         scale = 1.0
