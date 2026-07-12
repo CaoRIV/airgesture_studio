@@ -22,6 +22,30 @@ class CaptureGestureResult:
     progress: float
 
 
+@dataclass(frozen=True)
+class CaptureGestureConfig:
+    stable_frames_required: int = 5
+    centered_radius_ratio: float = 0.30
+    cluster_radius_ratio: float = 0.26
+    spread_ratio_required: float = 0.34
+    stable_motion_threshold: float = 64.0
+    dynamic_motion_ratio: float = 0.08
+
+    def __post_init__(self) -> None:
+        if self.stable_frames_required < 1:
+            raise ValueError("stable_frames_required must be at least 1")
+        ratio_values = (
+            self.centered_radius_ratio,
+            self.cluster_radius_ratio,
+            self.spread_ratio_required,
+            self.dynamic_motion_ratio,
+        )
+        if any(not 0.0 < value <= 1.0 for value in ratio_values):
+            raise ValueError("capture ratios must be in the range (0, 1]")
+        if self.stable_motion_threshold < 0.0:
+            raise ValueError("stable_motion_threshold cannot be negative")
+
+
 class TwoHandSpreadCaptureGesture:
     """Detects two hands framing a shot, then holding still briefly."""
 
@@ -35,12 +59,23 @@ class TwoHandSpreadCaptureGesture:
         cluster_radius_ratio: float = 0.26,
         spread_ratio_required: float = 0.34,
         stable_motion_threshold: float = 64.0,
+        dynamic_motion_ratio: float = 0.08,
+        config: CaptureGestureConfig | None = None,
     ) -> None:
-        self.stable_frames_required = stable_frames_required
-        self.centered_radius_ratio = centered_radius_ratio
-        self.cluster_radius_ratio = cluster_radius_ratio
-        self.spread_ratio_required = spread_ratio_required
-        self.stable_motion_threshold = stable_motion_threshold
+        resolved_config = config or CaptureGestureConfig(
+            stable_frames_required=stable_frames_required,
+            centered_radius_ratio=centered_radius_ratio,
+            cluster_radius_ratio=cluster_radius_ratio,
+            spread_ratio_required=spread_ratio_required,
+            stable_motion_threshold=stable_motion_threshold,
+            dynamic_motion_ratio=dynamic_motion_ratio,
+        )
+        self.stable_frames_required = resolved_config.stable_frames_required
+        self.centered_radius_ratio = resolved_config.centered_radius_ratio
+        self.cluster_radius_ratio = resolved_config.cluster_radius_ratio
+        self.spread_ratio_required = resolved_config.spread_ratio_required
+        self.stable_motion_threshold = resolved_config.stable_motion_threshold
+        self.dynamic_motion_ratio = resolved_config.dynamic_motion_ratio
         self._phase = CapturePhase.WAITING
         self._stable_frames = 0
         self._last_bounds: tuple[int, int, int, int] | None = None
@@ -148,7 +183,10 @@ class TwoHandSpreadCaptureGesture:
             + abs(height - last_height)
         )
         frame_height, frame_width = frame_shape[:2]
-        dynamic_threshold = max(self.stable_motion_threshold, min(frame_width, frame_height) * 0.08)
+        dynamic_threshold = max(
+            self.stable_motion_threshold,
+            min(frame_width, frame_height) * self.dynamic_motion_ratio,
+        )
         return motion <= dynamic_threshold
 
     def _distance(self, first, second) -> float:

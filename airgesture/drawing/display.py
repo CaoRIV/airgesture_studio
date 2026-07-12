@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-import ui_theme as ui
+from airgesture.ui import theme as ui
 
 
 @dataclass(frozen=True)

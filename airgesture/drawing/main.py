@@ -2,32 +2,30 @@ from __future__ import annotations
 
 from datetime import datetime
 from math import hypot
-from pathlib import Path
 import time
 
 import cv2
 
-from camera import Camera
-from canvas import DrawingCanvas
-from display import DisplayConfig, draw_app_overlay, fit_frame_to_display, frame_point_to_display
-from game_gesture import PinchGesture
-from gesture_controller import GestureController, GestureMode
-from hand_tracker import HandTracker
-from letter_recognizer import LetterRecognizer, RecognizedLetter
-from smoothing import PointSmoother
-from toolbar import GestureToolbar, ToolbarAction, draw_toolbar
-from tracking_settings import (
-    AIR_DRAWING_CURSOR_CONFIG,
-    AIR_DRAWING_PINCH_CONFIG,
-    AIR_DRAWING_TRACKER_CONFIG,
-    CAMERA_CONFIG,
+from airgesture.config import SETTINGS
+from airgesture.core.camera import Camera
+from airgesture.core.hand_tracker import HandTracker
+from airgesture.core.smoothing import PointSmoother
+from airgesture.drawing.canvas import CanvasConfig, DrawingCanvas
+from airgesture.drawing.display import (
+    DisplayConfig,
+    draw_app_overlay,
+    fit_frame_to_display,
+    frame_point_to_display,
 )
+from airgesture.drawing.gesture_controller import GestureController, GestureMode
+from airgesture.drawing.letter_recognizer import LetterRecognizer, RecognizedLetter
+from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction, draw_toolbar
+from airgesture.paths import OUTPUTS_DIR
+from airgesture.puzzle.gesture import PinchGesture
 
 
 WINDOW_NAME = "Hand Gesture Air Drawing - Gesture Toolbar"
-OUTPUT_DIR = Path("outputs") / "saved_drawings"
-DRAW_GRACE_FRAMES = 4
-MAX_BRIDGE_DISTANCE = 180
+OUTPUT_DIR = OUTPUTS_DIR / "saved_drawings"
 THUMB_TIP = 4
 TOOL_COLORS = {
     ToolbarAction.RED: (0, 0, 255),
@@ -36,7 +34,6 @@ TOOL_COLORS = {
     ToolbarAction.YELLOW: (0, 235, 255),
     ToolbarAction.WHITE: (255, 255, 255),
 }
-DETECTION_DISPLAY_SECONDS = 2.5
 
 
 def should_quit(key_code: int) -> bool:
@@ -76,14 +73,24 @@ def finalize_stroke(
 
 
 def main() -> int:
-    display_config = DisplayConfig(width=1280, height=720)
-    camera = Camera(CAMERA_CONFIG)
-    drawing_canvas = DrawingCanvas()
+    air_settings = SETTINGS.air_drawing
+    drawing_settings = air_settings.drawing
+    display_config = DisplayConfig(
+        width=SETTINGS.camera.width,
+        height=SETTINGS.camera.height,
+    )
+    camera = Camera(SETTINGS.camera)
+    drawing_canvas = DrawingCanvas(
+        CanvasConfig(
+            brush_thickness=drawing_settings.default_brush_size,
+            eraser_thickness=drawing_settings.eraser_size,
+        )
+    )
     gesture_controller = GestureController()
     letter_recognizer = LetterRecognizer()
     toolbar = GestureToolbar()
-    pinch_detector = PinchGesture(config=AIR_DRAWING_PINCH_CONFIG)
-    point_smoother = PointSmoother(AIR_DRAWING_CURSOR_CONFIG)
+    pinch_detector = PinchGesture(config=air_settings.pinch)
+    point_smoother = PointSmoother(air_settings.cursor_smoothing)
     current_color_action = ToolbarAction.RED
     active_toolbar_action = ToolbarAction.RED
     erasing = False
@@ -104,7 +111,7 @@ def main() -> int:
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
     try:
-        with HandTracker(AIR_DRAWING_TRACKER_CONFIG) as hand_tracker:
+        with HandTracker(air_settings.tracker) as hand_tracker:
             previous_time = time.perf_counter()
             smoothed_fps = 0.0
 
@@ -124,14 +131,14 @@ def main() -> int:
                 keep_stroke_open = (
                     gesture_state.mode == GestureMode.IDLE
                     and previous_draw_point is not None
-                    and missing_draw_frames < DRAW_GRACE_FRAMES
+                    and missing_draw_frames < drawing_settings.draw_grace_frames
                 )
 
                 if raw_drawing_active and index_tip is not None:
                     missing_draw_frames = 0
                     if previous_draw_point is not None:
                         bridge_distance = point_distance(previous_draw_point, index_tip)
-                        if bridge_distance <= MAX_BRIDGE_DISTANCE:
+                        if bridge_distance <= drawing_settings.max_bridge_distance:
                             if erasing:
                                 drawing_canvas.erase_line(previous_draw_point, index_tip)
                             else:
@@ -145,7 +152,10 @@ def main() -> int:
                             )
                             if recognized is not None:
                                 last_detected_symbol = recognized.letter
-                                last_detected_until = time.perf_counter() + DETECTION_DISPLAY_SECONDS
+                                last_detected_until = (
+                                    time.perf_counter()
+                                    + drawing_settings.detection_display_seconds
+                                )
                             drawing_canvas.clear_stroke()
                             stroke_points = [index_tip]
                     elif not erasing:
@@ -163,7 +173,10 @@ def main() -> int:
                         )
                         if recognized is not None:
                             last_detected_symbol = recognized.letter
-                            last_detected_until = time.perf_counter() + DETECTION_DISPLAY_SECONDS
+                            last_detected_until = (
+                                time.perf_counter()
+                                + drawing_settings.detection_display_seconds
+                            )
                     stroke_points = []
                     previous_draw_point = None
                     missing_draw_frames = 0
@@ -210,13 +223,13 @@ def main() -> int:
                     missing_draw_frames = 0
                 elif selected_action == ToolbarAction.THIN:
                     drawing_canvas.clear_stroke()
-                    drawing_canvas.set_brush_thickness(7)
+                    drawing_canvas.set_brush_thickness(drawing_settings.thin_brush_size)
                     stroke_points = []
                     previous_draw_point = None
                     missing_draw_frames = 0
                 elif selected_action == ToolbarAction.THICK:
                     drawing_canvas.clear_stroke()
-                    drawing_canvas.set_brush_thickness(16)
+                    drawing_canvas.set_brush_thickness(drawing_settings.thick_brush_size)
                     stroke_points = []
                     previous_draw_point = None
                     missing_draw_frames = 0

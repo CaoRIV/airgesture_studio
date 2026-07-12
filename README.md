@@ -16,10 +16,32 @@ Install dependencies:
 D:\Python3\python.exe -m pip install -r requirements.txt
 ```
 
+## Adjust Tracking Settings
+
+Runtime thresholds are stored in `airgesture/config/settings.json`. Restart the application after editing it.
+
+- `camera`: camera index, resolution, FPS, mirroring, and frame buffer size
+- `air_drawing.cursor_smoothing`: cursor smoothing alpha and missing-frame tolerance
+- `air_drawing.pinch`: pinch/release distances and missing-frame tolerance
+- `air_drawing.drawing`: stroke bridging, recognition display time, brush, and eraser sizes
+- `puzzle.capture`: spread ratio, stable-frame count, centering, and motion thresholds
+- `puzzle.game`: countdown, default difficulty, and board size
+- `tracker.landmark_filter`: adaptive landmark smoothing values for each mode
+
+Useful tuning directions:
+
+- Increase smoothing `alpha` for faster response; decrease it for steadier movement.
+- Increase `pinch_threshold` if pinching is hard to trigger. Keep `release_threshold` higher.
+- Decrease `spread_ratio_required` if puzzle auto-capture is difficult to activate.
+- Decrease `stable_frames_required` or increase motion thresholds if holding still is difficult.
+- Increase `thin_brush_size`, `thick_brush_size`, or `eraser_size` to change tool sizes.
+
+Invalid JSON, unknown fields, and unsafe values are rejected with a clear startup error.
+
 ## Run Main Menu
 
 ```powershell
-D:\Python3\python.exe app.py
+D:\Python3\python.exe -m airgesture
 ```
 
 Menu controls:
@@ -40,7 +62,7 @@ Calibration:
 ## Run Air Drawing
 
 ```powershell
-D:\Python3\python.exe main.py
+D:\Python3\python.exe -m airgesture.drawing.main
 ```
 
 Air drawing controls:
@@ -64,7 +86,7 @@ Toolbar:
 ## Run Gesture Puzzle
 
 ```powershell
-D:\Python3\python.exe game_main.py
+D:\Python3\python.exe -m airgesture.puzzle.main
 ```
 
 Puzzle controls:
@@ -116,3 +138,39 @@ Not implemented yet:
 
 - Recognition for full handwriting words
 - General OCR or handwriting recognition model
+
+## Project Structure
+
+```text
+airgesture/
+|-- __main__.py
+|-- app.py
+|-- calibration.py
+|-- paths.py
+|-- config/
+|   |-- settings.py
+|   `-- settings.json
+|-- core/
+|   |-- camera.py
+|   |-- hand_tracker.py
+|   `-- smoothing.py
+|-- drawing/
+|   |-- main.py
+|   |-- canvas.py
+|   |-- display.py
+|   |-- gesture_controller.py
+|   |-- letter_recognizer.py
+|   `-- toolbar.py
+|-- puzzle/
+|   |-- main.py
+|   |-- board.py
+|   |-- capture_gesture.py
+|   |-- gesture.py
+|   `-- hud.py
+`-- ui/
+    `-- theme.py
+
+models/
+outputs/
+tests/
+```

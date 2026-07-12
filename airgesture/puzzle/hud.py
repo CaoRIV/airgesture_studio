@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import cv2
 
-import ui_theme as ui
+from airgesture.ui import theme as ui
 
 
 def draw_capture_hud(

@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import unittest
 
-from smoothing import OneEuroConfig, OneEuroPointFilter, PointSmoother, SmoothingConfig
+from airgesture.core.smoothing import (
+    OneEuroConfig,
+    OneEuroPointFilter,
+    PointSmoother,
+    SmoothingConfig,
+)
 
 
 class PointSmootherTests(unittest.TestCase):
