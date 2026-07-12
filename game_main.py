@@ -5,7 +5,7 @@ import time
 
 import cv2
 
-from camera import Camera, CameraConfig
+from camera import Camera
 from game_capture_gesture import TwoHandSpreadCaptureGesture
 from game_gesture import PinchGesture
 from game_hud import (
@@ -16,9 +16,15 @@ from game_hud import (
     draw_play_hud,
     draw_victory_hud,
 )
-from hand_tracker import HandTracker, HandTrackerConfig
+from hand_tracker import HandTracker
 from puzzle_board import PuzzleBoard, PuzzleBoardConfig
-from smoothing import PointSmoother, SmoothingConfig
+from smoothing import PointSmoother
+from tracking_settings import (
+    CAMERA_CONFIG,
+    PUZZLE_CURSOR_CONFIG,
+    PUZZLE_PINCH_CONFIG,
+    PUZZLE_TRACKER_CONFIG,
+)
 
 
 WINDOW_NAME = "Gesture Puzzle Game"
@@ -60,7 +66,7 @@ def board_top_left(frame_shape, board_size: int) -> tuple[int, int]:
 
 
 def main() -> int:
-    camera = Camera(CameraConfig(camera_index=0, mirror=True, width=1280, height=720, fps=30))
+    camera = Camera(CAMERA_CONFIG)
     if not camera.open():
         print(
             "Error: Could not open webcam at index 0. "
@@ -68,14 +74,8 @@ def main() -> int:
         )
         return 1
 
-    hand_tracker_config = HandTrackerConfig(
-        max_num_hands=2,
-        min_detection_confidence=0.45,
-        min_hand_presence_confidence=0.35,
-        min_tracking_confidence=0.35,
-    )
-    cursor_smoother = PointSmoother(SmoothingConfig(alpha=0.32))
-    pinch_detector = PinchGesture()
+    cursor_smoother = PointSmoother(PUZZLE_CURSOR_CONFIG)
+    pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
     capture_gesture = TwoHandSpreadCaptureGesture()
     difficulty = 3
     board_size = 540
@@ -91,7 +91,7 @@ def main() -> int:
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
     try:
-        with HandTracker(hand_tracker_config) as hand_tracker:
+        with HandTracker(PUZZLE_TRACKER_CONFIG) as hand_tracker:
             while True:
                 success, frame = camera.read()
                 if not success:
@@ -132,7 +132,7 @@ def main() -> int:
                         selected_tile = None
                         moves = 0
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture()
+                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
                         capture_gesture.reset()
                     continue
 
@@ -152,7 +152,7 @@ def main() -> int:
                     if should_restart(key_code):
                         pending_capture_frame = None
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture()
+                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
                         capture_gesture.reset()
                         game_state = GameState.CAPTURE
                         continue
@@ -164,7 +164,7 @@ def main() -> int:
                         moves = 0
                         started_at = time.perf_counter()
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture()
+                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
                         game_state = GameState.PLAYING
                     continue
 
@@ -207,7 +207,7 @@ def main() -> int:
                         moves = 0
                         pending_capture_frame = None
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture()
+                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
                         capture_gesture.reset()
                         game_state = GameState.CAPTURE
                     continue
@@ -227,7 +227,7 @@ def main() -> int:
                         moves = 0
                         victory_elapsed = 0.0
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture()
+                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
                         capture_gesture.reset()
                         game_state = GameState.CAPTURE
                     continue

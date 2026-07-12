@@ -27,6 +27,7 @@ class Camera:
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)
             self._capture.set(cv2.CAP_PROP_FPS, self.config.fps)
+            self._capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         return self.is_opened
 
     @property
