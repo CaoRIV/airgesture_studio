@@ -5,7 +5,7 @@ from enum import Enum
 
 import cv2
 
-import ui_theme as ui
+from airgesture.ui import theme as ui
 
 
 class ToolbarAction(Enum):

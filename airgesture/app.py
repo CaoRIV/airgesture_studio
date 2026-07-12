@@ -6,10 +6,10 @@ from enum import Enum
 import cv2
 import numpy as np
 
-from calibration import CalibrationConfig, run_calibration
-import game_main
-import main as drawing_main
-import ui_theme as ui
+from airgesture.calibration import CalibrationConfig, run_calibration
+from airgesture.drawing import main as drawing_main
+from airgesture.puzzle import main as puzzle_main
+from airgesture.ui import theme as ui
 
 
 WINDOW_NAME = "AirGesture Studio"
@@ -95,7 +95,7 @@ def run_action(action: MenuAction) -> None:
             drawing_main.main()
     elif action == MenuAction.PUZZLE:
         if run_calibration(CalibrationConfig("Gesture Puzzle works best with two visible hands.", 2)):
-            game_main.main()
+            puzzle_main.main()
 
 
 def render_menu(selected_index: int):

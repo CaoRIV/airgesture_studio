@@ -5,10 +5,14 @@ import time
 
 import cv2
 
-from camera import Camera
-from game_capture_gesture import TwoHandSpreadCaptureGesture
-from game_gesture import PinchGesture
-from game_hud import (
+from airgesture.config import SETTINGS
+from airgesture.core.camera import Camera
+from airgesture.core.hand_tracker import HandTracker
+from airgesture.core.smoothing import PointSmoother
+from airgesture.puzzle.board import PuzzleBoard, PuzzleBoardConfig
+from airgesture.puzzle.capture_gesture import TwoHandSpreadCaptureGesture
+from airgesture.puzzle.gesture import PinchGesture
+from airgesture.puzzle.hud import (
     draw_capture_gesture,
     draw_capture_hud,
     draw_countdown_hud,
@@ -16,21 +20,11 @@ from game_hud import (
     draw_play_hud,
     draw_victory_hud,
 )
-from hand_tracker import HandTracker
-from puzzle_board import PuzzleBoard, PuzzleBoardConfig
-from smoothing import PointSmoother
-from tracking_settings import (
-    CAMERA_CONFIG,
-    PUZZLE_CURSOR_CONFIG,
-    PUZZLE_PINCH_CONFIG,
-    PUZZLE_TRACKER_CONFIG,
-)
 
 
 WINDOW_NAME = "Gesture Puzzle Game"
 INDEX_TIP = 8
 THUMB_TIP = 4
-COUNTDOWN_SECONDS = 3.0
 
 
 class GameState(Enum):
@@ -66,7 +60,9 @@ def board_top_left(frame_shape, board_size: int) -> tuple[int, int]:
 
 
 def main() -> int:
-    camera = Camera(CAMERA_CONFIG)
+    puzzle_settings = SETTINGS.puzzle
+    game_settings = puzzle_settings.game
+    camera = Camera(SETTINGS.camera)
     if not camera.open():
         print(
             "Error: Could not open webcam at index 0. "
@@ -74,11 +70,11 @@ def main() -> int:
         )
         return 1
 
-    cursor_smoother = PointSmoother(PUZZLE_CURSOR_CONFIG)
-    pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
-    capture_gesture = TwoHandSpreadCaptureGesture()
-    difficulty = 3
-    board_size = 540
+    cursor_smoother = PointSmoother(puzzle_settings.cursor_smoothing)
+    pinch_detector = PinchGesture(config=puzzle_settings.pinch)
+    capture_gesture = TwoHandSpreadCaptureGesture(config=puzzle_settings.capture)
+    difficulty = game_settings.default_difficulty
+    board_size = game_settings.board_size
     game_state = GameState.CAPTURE
     board: PuzzleBoard | None = None
     pending_capture_frame = None
@@ -91,7 +87,7 @@ def main() -> int:
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
     try:
-        with HandTracker(PUZZLE_TRACKER_CONFIG) as hand_tracker:
+        with HandTracker(puzzle_settings.tracker) as hand_tracker:
             while True:
                 success, frame = camera.read()
                 if not success:
@@ -132,7 +128,7 @@ def main() -> int:
                         selected_tile = None
                         moves = 0
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
+                        pinch_detector = PinchGesture(config=puzzle_settings.pinch)
                         capture_gesture.reset()
                     continue
 
@@ -142,7 +138,7 @@ def main() -> int:
                         continue
 
                     elapsed_countdown = time.perf_counter() - countdown_started_at
-                    remaining = COUNTDOWN_SECONDS - elapsed_countdown
+                    remaining = game_settings.countdown_seconds - elapsed_countdown
                     countdown_frame = pending_capture_frame.copy()
                     draw_countdown_hud(countdown_frame, remaining, difficulty)
                     cv2.imshow(WINDOW_NAME, countdown_frame)
@@ -152,7 +148,7 @@ def main() -> int:
                     if should_restart(key_code):
                         pending_capture_frame = None
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
+                        pinch_detector = PinchGesture(config=puzzle_settings.pinch)
                         capture_gesture.reset()
                         game_state = GameState.CAPTURE
                         continue
@@ -164,7 +160,7 @@ def main() -> int:
                         moves = 0
                         started_at = time.perf_counter()
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
+                        pinch_detector = PinchGesture(config=puzzle_settings.pinch)
                         game_state = GameState.PLAYING
                     continue
 
@@ -207,7 +203,7 @@ def main() -> int:
                         moves = 0
                         pending_capture_frame = None
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
+                        pinch_detector = PinchGesture(config=puzzle_settings.pinch)
                         capture_gesture.reset()
                         game_state = GameState.CAPTURE
                     continue
@@ -227,7 +223,7 @@ def main() -> int:
                         moves = 0
                         victory_elapsed = 0.0
                         cursor_smoother.reset()
-                        pinch_detector = PinchGesture(config=PUZZLE_PINCH_CONFIG)
+                        pinch_detector = PinchGesture(config=puzzle_settings.pinch)
                         capture_gesture.reset()
                         game_state = GameState.CAPTURE
                     continue

@@ -7,7 +7,9 @@ import time
 
 import cv2
 
-_matplotlib_cache_dir = Path(__file__).resolve().parent / ".cache" / "matplotlib"
+from airgesture.paths import CACHE_DIR, MODELS_DIR
+
+_matplotlib_cache_dir = CACHE_DIR / "matplotlib"
 _matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(_matplotlib_cache_dir))
 
@@ -17,7 +19,7 @@ from mediapipe.tasks.python.components.containers.landmark import NormalizedLand
 from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.vision.hand_landmarker import HandLandmarkerResult
 
-from smoothing import OneEuroConfig, OneEuroPointFilter
+from airgesture.core.smoothing import OneEuroConfig, OneEuroPointFilter
 
 
 @dataclass(frozen=True)
@@ -29,7 +31,7 @@ class HandTrackerConfig:
     filter_reset_after_missing_frames: int = 5
     landmark_filter: OneEuroConfig = field(default_factory=OneEuroConfig)
     model_asset_path: str = str(
-        Path(__file__).resolve().parent / "models" / "hand_landmarker.task"
+        MODELS_DIR / "hand_landmarker.task"
     )
 
     def __post_init__(self) -> None:

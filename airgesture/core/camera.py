@@ -12,6 +12,17 @@ class CameraConfig:
     width: int = 1280
     height: int = 720
     fps: int = 30
+    buffer_size: int = 1
+
+    def __post_init__(self) -> None:
+        if self.camera_index < 0:
+            raise ValueError("camera_index cannot be negative")
+        if self.width <= 0 or self.height <= 0:
+            raise ValueError("camera dimensions must be positive")
+        if self.fps <= 0:
+            raise ValueError("camera fps must be positive")
+        if self.buffer_size < 1:
+            raise ValueError("camera buffer_size must be at least 1")
 
 
 class Camera:
@@ -27,7 +38,7 @@ class Camera:
             self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
             self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)
             self._capture.set(cv2.CAP_PROP_FPS, self.config.fps)
-            self._capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            self._capture.set(cv2.CAP_PROP_BUFFERSIZE, self.config.buffer_size)
         return self.is_opened
 
     @property

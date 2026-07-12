@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from game_gesture import PinchGesture, PinchGestureConfig
+from airgesture.puzzle.gesture import PinchGesture, PinchGestureConfig
 
 
 class PinchGestureTests(unittest.TestCase):
