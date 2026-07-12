@@ -7,7 +7,11 @@ from typing import Any
 
 from airgesture.core.camera import CameraConfig
 from airgesture.core.hand_tracker import HandTrackerConfig
-from airgesture.core.smoothing import OneEuroConfig, SmoothingConfig
+from airgesture.core.smoothing import (
+    AdaptiveSmoothingConfig,
+    OneEuroConfig,
+    SmoothingConfig,
+)
 from airgesture.puzzle.capture_gesture import CaptureGestureConfig
 from airgesture.puzzle.gesture import PinchGestureConfig
 
@@ -22,16 +26,20 @@ class SettingsError(ValueError):
 @dataclass(frozen=True)
 class DrawingSettings:
     draw_grace_frames: int
+    stroke_end_debounce_seconds: float
     max_bridge_distance: float
     detection_display_seconds: float
     default_brush_size: int
     thin_brush_size: int
     thick_brush_size: int
     eraser_size: int
+    max_undo_steps: int
 
     def __post_init__(self) -> None:
         if self.draw_grace_frames < 0:
             raise ValueError("draw_grace_frames cannot be negative")
+        if self.stroke_end_debounce_seconds < 0.0:
+            raise ValueError("stroke_end_debounce_seconds cannot be negative")
         if self.max_bridge_distance <= 0.0:
             raise ValueError("max_bridge_distance must be positive")
         if self.detection_display_seconds < 0.0:
@@ -44,12 +52,14 @@ class DrawingSettings:
         )
         if any(size < 2 for size in brush_sizes):
             raise ValueError("brush and eraser sizes must be at least 2")
+        if self.max_undo_steps < 1:
+            raise ValueError("max_undo_steps must be at least 1")
 
 
 @dataclass(frozen=True)
 class AirDrawingSettings:
     tracker: HandTrackerConfig
-    cursor_smoothing: SmoothingConfig
+    adaptive_smoothing: AdaptiveSmoothingConfig
     pinch: PinchGestureConfig
     drawing: DrawingSettings
 
@@ -113,7 +123,7 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
         air = _section(
             root["air_drawing"],
             "air_drawing",
-            {"tracker", "cursor_smoothing", "pinch", "drawing"},
+            {"tracker", "adaptive_smoothing", "pinch", "drawing"},
         )
         puzzle = _section(
             root["puzzle"],
@@ -129,8 +139,11 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
             camera=CameraConfig(**_mapping(root["camera"], "camera")),
             air_drawing=AirDrawingSettings(
                 tracker=_tracker_config(air["tracker"]),
-                cursor_smoothing=SmoothingConfig(
-                    **_mapping(air["cursor_smoothing"], "air_drawing.cursor_smoothing")
+                adaptive_smoothing=AdaptiveSmoothingConfig(
+                    **_mapping(
+                        air["adaptive_smoothing"],
+                        "air_drawing.adaptive_smoothing",
+                    )
                 ),
                 pinch=PinchGestureConfig(
                     **_mapping(air["pinch"], "air_drawing.pinch")

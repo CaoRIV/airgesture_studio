@@ -21,8 +21,12 @@
         "max_jump": 0.18
       }
     },
-    "cursor_smoothing": {
-      "alpha": 0.55,
+    "adaptive_smoothing": {
+      "slow_alpha": 0.18,
+      "fast_alpha": 0.82,
+      "slow_speed": 90.0,
+      "fast_speed": 950.0,
+      "speed_smoothing_alpha": 0.35,
       "missing_frame_tolerance": 2
     },
     "pinch": {
@@ -32,12 +36,14 @@
     },
     "drawing": {
       "draw_grace_frames": 4,
+      "stroke_end_debounce_seconds": 0.18,
       "max_bridge_distance": 180.0,
       "detection_display_seconds": 2.5,
       "default_brush_size": 10,
       "thin_brush_size": 7,
       "thick_brush_size": 16,
-      "eraser_size": 34
+      "eraser_size": 34,
+      "max_undo_steps": 20
     }
   },
   "puzzle": {

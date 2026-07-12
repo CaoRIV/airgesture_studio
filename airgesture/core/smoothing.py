@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import pi
+from math import hypot, pi
+import time
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,111 @@ class PointSmoother:
         smoothed_y = self._point[1] * (1.0 - alpha) + point[1] * alpha
         self._point = smoothed_x, smoothed_y
         return int(round(smoothed_x)), int(round(smoothed_y))
+
+
+@dataclass(frozen=True)
+class AdaptiveSmoothingConfig:
+    """Velocity-based smoothing parameters for drawing input."""
+
+    slow_alpha: float
+    fast_alpha: float
+    slow_speed: float
+    fast_speed: float
+    speed_smoothing_alpha: float
+    missing_frame_tolerance: int = 2
+
+    def __post_init__(self) -> None:
+        if not 0.0 < self.slow_alpha <= self.fast_alpha <= 1.0:
+            raise ValueError("adaptive alpha values must satisfy 0 < slow <= fast <= 1")
+        if self.slow_speed < 0.0 or self.fast_speed <= self.slow_speed:
+            raise ValueError("fast_speed must be greater than non-negative slow_speed")
+        if not 0.0 < self.speed_smoothing_alpha <= 1.0:
+            raise ValueError("speed_smoothing_alpha must be in the range (0, 1]")
+        if self.missing_frame_tolerance < 0:
+            raise ValueError("missing_frame_tolerance cannot be negative")
+
+
+class AdaptivePointSmoother:
+    """Smooth slow movement strongly and follow fast movement responsively."""
+
+    def __init__(self, config: AdaptiveSmoothingConfig) -> None:
+        self.config = config
+        self._point: tuple[float, float] | None = None
+        self._raw_point: tuple[int, int] | None = None
+        self._timestamp_seconds: float | None = None
+        self._speed = 0.0
+        self._alpha = config.slow_alpha
+        self._missing_frames = 0
+
+    @property
+    def speed(self) -> float:
+        return self._speed
+
+    @property
+    def alpha(self) -> float:
+        return self._alpha
+
+    def reset(self) -> None:
+        self._point = None
+        self._raw_point = None
+        self._timestamp_seconds = None
+        self._speed = 0.0
+        self._alpha = self.config.slow_alpha
+        self._missing_frames = 0
+
+    def update(
+        self,
+        point: tuple[int, int] | None,
+        timestamp_seconds: float | None = None,
+    ) -> tuple[int, int] | None:
+        now = time.perf_counter() if timestamp_seconds is None else timestamp_seconds
+        if point is None:
+            self._missing_frames += 1
+            if (
+                self._point is not None
+                and self._missing_frames <= self.config.missing_frame_tolerance
+            ):
+                return int(round(self._point[0])), int(round(self._point[1]))
+            self.reset()
+            return None
+
+        self._missing_frames = 0
+        if self._point is None or self._raw_point is None or self._timestamp_seconds is None:
+            self._point = float(point[0]), float(point[1])
+            self._raw_point = point
+            self._timestamp_seconds = now
+            return point
+
+        dt = max(now - self._timestamp_seconds, 1.0 / 120.0)
+        instant_speed = hypot(
+            point[0] - self._raw_point[0],
+            point[1] - self._raw_point[1],
+        ) / dt
+        # React to acceleration immediately, then decay speed gradually when slowing down.
+        speed_alpha = (
+            1.0
+            if instant_speed > self._speed
+            else self.config.speed_smoothing_alpha
+        )
+        self._speed += speed_alpha * (instant_speed - self._speed)
+        self._alpha = self._alpha_for_speed(self._speed)
+
+        smoothed_x = self._point[0] + self._alpha * (point[0] - self._point[0])
+        smoothed_y = self._point[1] + self._alpha * (point[1] - self._point[1])
+        self._point = smoothed_x, smoothed_y
+        self._raw_point = point
+        self._timestamp_seconds = now
+        return int(round(smoothed_x)), int(round(smoothed_y))
+
+    def _alpha_for_speed(self, speed: float) -> float:
+        speed_range = self.config.fast_speed - self.config.slow_speed
+        ratio = (speed - self.config.slow_speed) / speed_range
+        ratio = min(max(ratio, 0.0), 1.0)
+        # Smoothstep avoids an abrupt feel around either speed threshold.
+        ratio = ratio * ratio * (3.0 - 2.0 * ratio)
+        return self.config.slow_alpha + ratio * (
+            self.config.fast_alpha - self.config.slow_alpha
+        )
 
 
 @dataclass(frozen=True)
