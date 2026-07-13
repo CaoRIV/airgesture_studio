@@ -23,6 +23,7 @@ Runtime thresholds are stored in `airgesture/config/settings.json`. Restart the 
 - `camera`: camera index, resolution, FPS, mirroring, and frame buffer size
 - `air_drawing.adaptive_smoothing`: slow/fast smoothing alpha, speed range, and missing-frame tolerance
 - `air_drawing.pinch`: pinch/release distances and missing-frame tolerance
+- `air_drawing.recognition`: snap confidence, runner-up margin, top suggestions, raster image, and optional ONNX model
 - `air_drawing.drawing`: stroke debounce, bridging, undo depth, recognition display time, brush, and eraser sizes
 - `puzzle.capture`: spread ratio, stable-frame count, centering, and motion thresholds
 - `puzzle.game`: countdown, default difficulty, and board size
@@ -45,20 +46,26 @@ Invalid JSON, unknown fields, and unsafe values are rejected with a clear startu
 D:\Python3\python.exe -m airgesture
 ```
 
+When the terminal is already inside the `airgesture` folder, the direct launcher is also supported:
+
+```powershell
+D:\Python3\python.exe app.py
+```
+
 Menu controls:
 
 - `1`: Air Drawing
 - `2`: Gesture Puzzle
+- `K`: optional Camera Check
 - `W` / `S`: select menu item
 - `Enter`: open selected item
 - `Q` or `Esc`: quit
 
-Calibration:
+Camera Check:
 
-- Choosing a mode from the main menu opens a webcam calibration screen first
-- `Space`: continue when status is ready
-- `Enter`: skip calibration and continue anyway
-- `Q` or `Esc`: cancel back to the menu
+- Air Drawing and Gesture Puzzle now open directly without a calibration step
+- Press `K` from the menu to inspect camera framing, brightness, and hand tracking
+- `Enter`, `Space`, `K`, `Q`, or `Esc`: return to the menu
 
 ## Run Air Drawing
 
@@ -71,7 +78,8 @@ Air drawing controls:
 - Pinch thumb + index finger: draw or erase
 - Index + middle fingers: move cursor without drawing and select toolbar items
 - Draw a one-stroke letter or digit (`A-Z`, `0-9`), then release pinch: snap it into a clean symbol when recognized
-- The top overlay briefly shows `Phat hien: X` after a symbol is detected
+- A symbol is snapped only when confidence and the lead over the runner-up are high enough
+- The top overlay shows `PHAT HIEN` for an accepted symbol or `GOI Y` with up to three uncertain candidates
 - `c`: clear drawing canvas
 - `u` or `z`: undo the last committed drawing or eraser stroke
 - `q`: quit
@@ -113,11 +121,11 @@ Implemented:
 - MediaPipe hand landmark detection
 - MediaPipe video-mode tracking with monotonic frame timestamps
 - Adaptive One Euro filtering across all 21 hand landmarks
-- Separate tracking profiles for drawing, puzzle, and calibration
+- Separate tracking profiles for drawing, puzzle, and optional Camera Check
 - Two-frame cursor and pinch dropout tolerance for brief detection loss
 - Local MediaPipe Tasks model at `models/hand_landmarker.task`
 - Home menu launcher for selecting drawing or puzzle mode
-- Webcam calibration screen with hand-count and brightness checks
+- Optional responsive Camera Check screen with hand-count and brightness diagnostics
 - Gesture-controlled 3x3 webcam puzzle game
 - 3x3 and 4x4 puzzle difficulty selection
 - Countdown before puzzle start
@@ -143,7 +151,13 @@ Implemented:
 Not implemented yet:
 
 - Recognition for full handwriting words
-- General OCR or handwriting recognition model
+- A bundled, trained handwriting ONNX model; the runtime integration is ready for an external model
+
+## Optional ONNX Recognition
+
+Set `air_drawing.recognition.onnx_model_path` in `airgesture/config/settings.json` to a model filename stored under `models/`. Leave it as `null` to use template recognition only.
+
+The configured model must accept a normalized grayscale stroke tensor shaped `1 x 1 x 64 x 64` and return one score for each character in `onnx_labels`. By default the expected output order is `A-Z`, followed by `0-9`. Template and ONNX scores are combined using `onnx_weight` before confidence and ambiguity checks are applied.
 
 ## Project Structure
 

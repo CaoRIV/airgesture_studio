@@ -18,7 +18,10 @@ from airgesture.drawing.display import (
     frame_point_to_display,
 )
 from airgesture.drawing.gesture_controller import GestureController, GestureMode
-from airgesture.drawing.letter_recognizer import LetterRecognizer, RecognizedLetter
+from airgesture.drawing.letter_recognizer import (
+    LetterRecognizer,
+    RecognitionAnalysis,
+)
 from airgesture.drawing.stroke_state import StrokeEndDebouncer
 from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction, draw_toolbar
 from airgesture.paths import OUTPUTS_DIR
@@ -62,19 +65,26 @@ def finalize_stroke(
     drawing_canvas: DrawingCanvas,
     recognizer: LetterRecognizer,
     stroke_points: list[tuple[int, int]],
-) -> RecognizedLetter | None:
+) -> RecognitionAnalysis | None:
     if not stroke_points:
         return None
 
-    recognized = recognizer.recognize(stroke_points)
-    if recognized is not None:
+    analysis = recognizer.analyze(stroke_points)
+    if analysis is not None and analysis.accepted is not None:
         drawing_canvas.clear_stroke()
-        drawing_canvas.draw_clean_letter(recognized.letter, recognized.bounds)
-        return recognized
+        drawing_canvas.draw_clean_letter(
+            analysis.accepted.letter,
+            analysis.accepted.bounds,
+        )
+        return analysis
 
-    cleaned_points = recognizer.clean_points(stroke_points)
+    cleaned_points = (
+        analysis.cleaned_points
+        if analysis is not None
+        else recognizer.clean_points(stroke_points)
+    )
     drawing_canvas.commit_clean_stroke(cleaned_points)
-    return None
+    return analysis
 
 
 def main() -> int:
@@ -93,7 +103,7 @@ def main() -> int:
         )
     )
     gesture_controller = GestureController()
-    letter_recognizer = LetterRecognizer()
+    letter_recognizer = LetterRecognizer(config=air_settings.recognition)
     toolbar = GestureToolbar()
     pinch_detector = PinchGesture(config=air_settings.pinch)
     point_smoother = AdaptivePointSmoother(air_settings.adaptive_smoothing)
@@ -108,6 +118,7 @@ def main() -> int:
     erase_history_started = False
     stroke_points: list[tuple[int, int]] = []
     last_detected_symbol: str | None = None
+    last_recognition_suggestions: tuple[tuple[str, float], ...] = ()
     last_detected_until = 0.0
     drawing_canvas.set_brush_color(TOOL_COLORS[current_color_action])
 
@@ -156,17 +167,29 @@ def main() -> int:
                                 drawing_canvas.draw_line(previous_draw_point, index_tip)
                                 stroke_points.append(index_tip)
                         elif not erasing:
-                            recognized = finalize_stroke(
+                            analysis = finalize_stroke(
                                 drawing_canvas,
                                 letter_recognizer,
                                 stroke_points,
                             )
-                            if recognized is not None:
-                                last_detected_symbol = recognized.letter
+                            if analysis is not None:
+                                last_detected_symbol = (
+                                    analysis.accepted.letter
+                                    if analysis.accepted is not None
+                                    else None
+                                )
+                                last_recognition_suggestions = tuple(
+                                    (candidate.symbol, candidate.confidence)
+                                    for candidate in analysis.suggestions
+                                )
                                 last_detected_until = (
                                     time.perf_counter()
                                     + drawing_settings.detection_display_seconds
                                 )
+                            else:
+                                last_detected_symbol = None
+                                last_recognition_suggestions = ()
+                                last_detected_until = 0.0
                             drawing_canvas.clear_stroke()
                             stroke_points = [index_tip]
                         elif erasing:
@@ -180,17 +203,29 @@ def main() -> int:
                     has_open_stroke=True,
                 ):
                     if not erasing:
-                        recognized = finalize_stroke(
+                        analysis = finalize_stroke(
                             drawing_canvas,
                             letter_recognizer,
                             stroke_points,
                         )
-                        if recognized is not None:
-                            last_detected_symbol = recognized.letter
+                        if analysis is not None:
+                            last_detected_symbol = (
+                                analysis.accepted.letter
+                                if analysis.accepted is not None
+                                else None
+                            )
+                            last_recognition_suggestions = tuple(
+                                (candidate.symbol, candidate.confidence)
+                                for candidate in analysis.suggestions
+                            )
                             last_detected_until = (
                                 time.perf_counter()
                                 + drawing_settings.detection_display_seconds
                             )
+                        else:
+                            last_detected_symbol = None
+                            last_recognition_suggestions = ()
+                            last_detected_until = 0.0
                     stroke_points = []
                     previous_draw_point = None
                     erase_history_started = False
@@ -262,6 +297,7 @@ def main() -> int:
                     erase_history_started = False
                     stroke_debouncer.reset()
                     last_detected_symbol = None
+                    last_recognition_suggestions = ()
                     last_detected_until = 0.0
                 elif selected_action == ToolbarAction.CLEAR:
                     drawing_canvas.clear()
@@ -271,6 +307,7 @@ def main() -> int:
                     erase_history_started = False
                     stroke_debouncer.reset()
                     last_detected_symbol = None
+                    last_recognition_suggestions = ()
                     last_detected_until = 0.0
                 elif selected_action == ToolbarAction.SAVE:
                     drawing_canvas.clear_stroke()
@@ -286,6 +323,11 @@ def main() -> int:
                     if last_detected_symbol is not None and current_time <= last_detected_until
                     else None
                 )
+                recognition_suggestions = (
+                    last_recognition_suggestions
+                    if current_time <= last_detected_until
+                    else ()
+                )
                 draw_app_overlay(
                     display_frame,
                     frame_bounds,
@@ -293,6 +335,7 @@ def main() -> int:
                     mode="Draw" if pinch.active else gesture_state.mode.value,
                     fps=smoothed_fps,
                     detected_symbol=detected_symbol,
+                    recognition_suggestions=recognition_suggestions,
                 )
                 draw_toolbar(
                     display_frame,
@@ -313,6 +356,7 @@ def main() -> int:
                     erase_history_started = False
                     stroke_debouncer.reset()
                     last_detected_symbol = None
+                    last_recognition_suggestions = ()
                     last_detected_until = 0.0
                 elif should_undo(key_code):
                     drawing_canvas.clear_stroke()
@@ -322,6 +366,7 @@ def main() -> int:
                     erase_history_started = False
                     stroke_debouncer.reset()
                     last_detected_symbol = None
+                    last_recognition_suggestions = ()
                     last_detected_until = 0.0
     finally:
         camera.release()

@@ -17,8 +17,15 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.air_drawing.drawing.thin_brush_size, 7)
         self.assertAlmostEqual(settings.air_drawing.adaptive_smoothing.slow_alpha, 0.18)
         self.assertEqual(settings.air_drawing.drawing.max_undo_steps, 20)
+        self.assertAlmostEqual(
+            settings.air_drawing.recognition.snap_confidence_threshold,
+            0.74,
+        )
+        self.assertEqual(settings.air_drawing.recognition.suggestion_count, 3)
         self.assertEqual(settings.puzzle.capture.stable_frames_required, 5)
         self.assertAlmostEqual(settings.puzzle.capture.spread_ratio_required, 0.34)
+        self.assertEqual(settings.calibration.min_brightness, 55.0)
+        self.assertEqual(settings.calibration.max_brightness, 220.0)
 
     def test_calibration_hand_count_does_not_mutate_base_settings(self) -> None:
         tracker = SETTINGS.calibration_tracker(required_hands=2)

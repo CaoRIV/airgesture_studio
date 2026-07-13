@@ -34,6 +34,20 @@
       "release_threshold": 68.0,
       "missing_frame_tolerance": 2
     },
+    "recognition": {
+      "sample_count": 64,
+      "snap_confidence_threshold": 0.74,
+      "min_confidence_margin": 0.07,
+      "ambiguous_confidence_margin": 0.12,
+      "suggestion_count": 3,
+      "suggestion_min_confidence": 0.30,
+      "image_size": 64,
+      "image_padding": 8,
+      "image_line_thickness": 4,
+      "onnx_model_path": null,
+      "onnx_weight": 0.70,
+      "onnx_labels": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    },
     "drawing": {
       "draw_grace_frames": 4,
       "stroke_end_debounce_seconds": 0.18,
@@ -84,6 +98,8 @@
     }
   },
   "calibration": {
+    "min_brightness": 55.0,
+    "max_brightness": 220.0,
     "tracker": {
       "max_num_hands": 1,
       "min_detection_confidence": 0.55,

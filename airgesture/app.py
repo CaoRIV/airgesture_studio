@@ -2,11 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+import sys
+
+
+if __package__ in (None, ""):
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
 
 import cv2
 import numpy as np
 
-from airgesture.calibration import CalibrationConfig, run_calibration
+from airgesture.calibration import CameraCheckConfig, run_camera_check
 from airgesture.drawing import main as drawing_main
 from airgesture.puzzle import main as puzzle_main
 from airgesture.ui import theme as ui
@@ -20,6 +28,7 @@ MENU_HEIGHT = 720
 class MenuAction(Enum):
     DRAWING = "Air Drawing"
     PUZZLE = "Gesture Puzzle"
+    CAMERA_CHECK = "Camera Check"
     QUIT = "Quit"
 
 
@@ -43,6 +52,12 @@ MENU_ITEMS = [
         "Gesture Puzzle",
         "Capture a webcam shot, solve with pinch swaps.",
         "2",
+    ),
+    MenuItem(
+        MenuAction.CAMERA_CHECK,
+        "Camera Check",
+        "Optional diagnostics for lighting and hand tracking.",
+        "K",
     ),
     MenuItem(
         MenuAction.QUIT,
@@ -70,6 +85,9 @@ def main() -> int:
         elif key_code in (ord("2"),):
             run_action(MenuAction.PUZZLE)
             cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        elif key_code in (ord("k"), ord("K")):
+            run_action(MenuAction.CAMERA_CHECK)
+            cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         elif key_code in (13, 10):
             action = MENU_ITEMS[selected_index].action
             if action == MenuAction.QUIT:
@@ -91,11 +109,16 @@ def main() -> int:
 def run_action(action: MenuAction) -> None:
     cv2.destroyWindow(WINDOW_NAME)
     if action == MenuAction.DRAWING:
-        if run_calibration(CalibrationConfig("Air Drawing needs one clearly visible hand.", 1)):
-            drawing_main.main()
+        drawing_main.main()
     elif action == MenuAction.PUZZLE:
-        if run_calibration(CalibrationConfig("Gesture Puzzle works best with two visible hands.", 2)):
-            puzzle_main.main()
+        puzzle_main.main()
+    elif action == MenuAction.CAMERA_CHECK:
+        run_camera_check(
+            CameraCheckConfig(
+                title="Optional diagnostics for camera, lighting, and tracking.",
+                required_hands=1,
+            )
+        )
 
 
 def render_menu(selected_index: int):
@@ -116,26 +139,26 @@ def render_menu(selected_index: int):
     draw_mode_visual(frame)
     draw_system_strip(frame)
 
-    ui.panel(frame, (612, 154, 594, 420), fill=(16, 20, 29), border=ui.BORDER_SOFT, alpha=0.90)
-    ui.put_text(frame, "Select Experience", (640, 202), 0.82, ui.TEXT, 2)
-    ui.put_text(frame, "Use number keys or W/S + Enter.", (642, 232), 0.52, ui.TEXT_MUTED, 1)
+    ui.panel(frame, (612, 138, 594, 470), fill=(16, 20, 29), border=ui.BORDER_SOFT, alpha=0.90)
+    ui.put_text(frame, "Select Mode", (640, 180), 0.82, ui.TEXT, 2)
+    ui.put_text(frame, "Use shortcuts or W/S + Enter.", (642, 210), 0.52, ui.TEXT_MUTED, 1)
 
-    start_y = 266
+    start_y = 232
     for index, item in enumerate(MENU_ITEMS):
         draw_menu_item(
             frame,
             item,
             index=index,
             selected=index == selected_index,
-            origin=(640, start_y + index * 102),
+            origin=(640, start_y + index * 86),
         )
 
     ui.panel(frame, (58, MENU_HEIGHT - 68, MENU_WIDTH - 116, 42), fill=(16, 20, 28), border=ui.BORDER_SOFT, alpha=0.82, shadow=False)
     ui.put_text(
         frame,
-        "1 Drawing    2 Puzzle    W/S Select    Enter Open    Q/Esc Quit",
+        "1 Drawing    2 Puzzle    K Camera Check    W/S Select    Enter Open    Q/Esc Quit",
         (78, MENU_HEIGHT - 41),
-        0.62,
+        0.56,
         ui.TEXT_MUTED,
         1,
     )
@@ -190,7 +213,7 @@ def draw_system_strip(frame) -> None:
 def draw_menu_item(frame, item: MenuItem, index: int, selected: bool, origin: tuple[int, int]) -> None:
     x, y = origin
     width = 528
-    height = 82
+    height = 76
     color = menu_color(item.action)
     fill = ui.SURFACE_RAISED if selected else ui.SURFACE
     border = color if selected else ui.BORDER_SOFT
@@ -199,14 +222,14 @@ def draw_menu_item(frame, item: MenuItem, index: int, selected: bool, origin: tu
         ui.accent_bar(frame, (x, y, 6, height), color)
 
     badge_x = x + 20
-    badge_y = y + 19
-    cv2.rectangle(frame, (badge_x, badge_y), (badge_x + 46, badge_y + 44), color, -1)
-    ui.put_center(frame, item.shortcut, (badge_x + 23, badge_y + 22), 0.70, (8, 10, 14), 2)
+    badge_y = y + 16
+    cv2.rectangle(frame, (badge_x, badge_y), (badge_x + 44, badge_y + 42), color, -1)
+    ui.put_center(frame, item.shortcut, (badge_x + 22, badge_y + 21), 0.66, (8, 10, 14), 2)
 
-    ui.put_text(frame, item.title, (x + 88, y + 32), 0.78, ui.TEXT, 2)
-    ui.put_text(frame, item.subtitle, (x + 90, y + 62), 0.48, ui.TEXT_MUTED, 1)
+    ui.put_text(frame, item.title, (x + 84, y + 29), 0.72, ui.TEXT, 2)
+    ui.put_text(frame, item.subtitle, (x + 86, y + 55), 0.44, ui.TEXT_MUTED, 1)
     if selected:
-        ui.put_text(frame, "READY", (x + width - 82, y + 32), 0.46, color, 1)
+        ui.put_text(frame, "READY", (x + width - 82, y + 29), 0.44, color, 1)
 
 
 def menu_color(action: MenuAction) -> tuple[int, int, int]:
@@ -214,6 +237,8 @@ def menu_color(action: MenuAction) -> tuple[int, int, int]:
         return ui.CYAN
     if action == MenuAction.PUZZLE:
         return ui.GREEN
+    if action == MenuAction.CAMERA_CHECK:
+        return ui.YELLOW
     return ui.RED
 
 

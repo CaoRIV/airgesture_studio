@@ -12,6 +12,7 @@ from airgesture.core.smoothing import (
     OneEuroConfig,
     SmoothingConfig,
 )
+from airgesture.drawing.letter_recognizer import RecognitionConfig
 from airgesture.puzzle.capture_gesture import CaptureGestureConfig
 from airgesture.puzzle.gesture import PinchGestureConfig
 
@@ -61,6 +62,7 @@ class AirDrawingSettings:
     tracker: HandTrackerConfig
     adaptive_smoothing: AdaptiveSmoothingConfig
     pinch: PinchGestureConfig
+    recognition: RecognitionConfig
     drawing: DrawingSettings
 
 
@@ -91,6 +93,14 @@ class PuzzleSettings:
 @dataclass(frozen=True)
 class CalibrationSettings:
     tracker: HandTrackerConfig
+    min_brightness: float
+    max_brightness: float
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.min_brightness < self.max_brightness <= 255.0:
+            raise ValueError(
+                "calibration brightness must satisfy 0 <= min < max <= 255"
+            )
 
 
 @dataclass(frozen=True)
@@ -123,7 +133,7 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
         air = _section(
             root["air_drawing"],
             "air_drawing",
-            {"tracker", "adaptive_smoothing", "pinch", "drawing"},
+            {"tracker", "adaptive_smoothing", "pinch", "recognition", "drawing"},
         )
         puzzle = _section(
             root["puzzle"],
@@ -133,7 +143,7 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
         calibration = _section(
             root["calibration"],
             "calibration",
-            {"tracker"},
+            {"tracker", "min_brightness", "max_brightness"},
         )
         return AppSettings(
             camera=CameraConfig(**_mapping(root["camera"], "camera")),
@@ -147,6 +157,9 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
                 ),
                 pinch=PinchGestureConfig(
                     **_mapping(air["pinch"], "air_drawing.pinch")
+                ),
+                recognition=RecognitionConfig(
+                    **_mapping(air["recognition"], "air_drawing.recognition")
                 ),
                 drawing=DrawingSettings(
                     **_mapping(air["drawing"], "air_drawing.drawing")
@@ -169,6 +182,8 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
             ),
             calibration=CalibrationSettings(
                 tracker=_tracker_config(calibration["tracker"]),
+                min_brightness=float(calibration["min_brightness"]),
+                max_brightness=float(calibration["max_brightness"]),
             ),
         )
     except (KeyError, TypeError, ValueError) as exc:
