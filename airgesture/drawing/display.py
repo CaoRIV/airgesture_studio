@@ -62,6 +62,7 @@ def draw_app_overlay(
     mode: str,
     fps: float,
     detected_symbol: str | None = None,
+    recognition_suggestions: tuple[tuple[str, float], ...] = (),
 ) -> None:
     x, y, width, height = frame_bounds
 
@@ -98,9 +99,21 @@ def draw_app_overlay(
     if detected_symbol is not None:
         ui.chip(
             display_frame,
-            (418, 22, 214, 34),
+            (418, 22, 350, 34),
             f"PHAT HIEN: {detected_symbol}",
             color=ui.GREEN,
+            active=True,
+        )
+    elif recognition_suggestions:
+        suggestion_text = "  ".join(
+            f"{symbol} {confidence * 100:.0f}%"
+            for symbol, confidence in recognition_suggestions
+        )
+        ui.chip(
+            display_frame,
+            (418, 22, 350, 34),
+            f"GOI Y: {suggestion_text}",
+            color=ui.YELLOW,
             active=True,
         )
     ui.chip(
@@ -150,7 +163,7 @@ def _draw_bottom_help(display_frame) -> None:
     cv2.line(display_frame, (0, height - 54), (width, height - 54), ui.BORDER_SOFT, 1, cv2.LINE_AA)
     ui.put_text(
         display_frame,
-        "Pinch: Draw/Erase    2 fingers: Move/Select toolbar    C: Clear    Q/Esc: Exit",
+        "Pinch: Draw/Erase    2 fingers: Move/Select    U/Z: Undo    C: Clear    Q/Esc: Exit",
         (28, height - 22),
         0.56,
         ui.TEXT_MUTED,

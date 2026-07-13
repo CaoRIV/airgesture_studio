@@ -8,53 +8,78 @@ import numpy as np
 from airgesture.config import SETTINGS
 from airgesture.core.camera import Camera
 from airgesture.core.hand_tracker import HandTracker
+from airgesture.drawing.display import DisplayConfig, fit_frame_to_display
+from airgesture.ui import theme as ui
 
 
-WINDOW_NAME = "AirGesture Calibration"
+WINDOW_NAME = "AirGesture Camera Check"
 
 
 @dataclass(frozen=True)
-class CalibrationConfig:
-    title: str
-    required_hands: int
-    min_brightness: float = 55.0
-    max_brightness: float = 220.0
+class CameraCheckConfig:
+    title: str = "Check camera, lighting, and hand tracking."
+    required_hands: int = 1
+    min_brightness: float = SETTINGS.calibration.min_brightness
+    max_brightness: float = SETTINGS.calibration.max_brightness
+
+    def __post_init__(self) -> None:
+        if self.required_hands < 1:
+            raise ValueError("required_hands must be at least 1")
+        if not 0.0 <= self.min_brightness < self.max_brightness <= 255.0:
+            raise ValueError("brightness must satisfy 0 <= min < max <= 255")
 
 
-def run_calibration(config: CalibrationConfig) -> bool:
+def run_camera_check(config: CameraCheckConfig | None = None) -> None:
+    resolved_config = config or CameraCheckConfig()
     camera = Camera(SETTINGS.camera)
     if not camera.open():
-        print("Error: Could not open webcam for calibration.")
-        return False
+        print("Error: Could not open webcam for camera check.")
+        return
 
-    hand_tracker_config = SETTINGS.calibration_tracker(config.required_hands)
-
+    tracker_config = SETTINGS.calibration_tracker(resolved_config.required_hands)
+    display_config = DisplayConfig(
+        width=SETTINGS.camera.width,
+        height=SETTINGS.camera.height,
+    )
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
     try:
-        with HandTracker(hand_tracker_config) as hand_tracker:
+        with HandTracker(tracker_config) as hand_tracker:
             while True:
                 success, frame = camera.read()
                 if not success:
-                    print("Error: Could not read webcam frame during calibration.")
-                    return False
+                    print("Error: Could not read webcam frame during camera check.")
+                    return
 
                 results = hand_tracker.detect(frame)
                 hand_count = len(results.hand_landmarks) if results.hand_landmarks else 0
                 brightness = average_brightness(frame)
-                ready = is_ready(config, hand_count, brightness)
+                ready = is_ready(resolved_config, hand_count, brightness)
 
                 hand_tracker.draw_landmarks(frame, results)
-                draw_calibration_hud(frame, config, hand_count, brightness, ready)
-                cv2.imshow(WINDOW_NAME, frame)
+                display_frame, frame_bounds = fit_frame_to_display(frame, display_config)
+                draw_camera_check_hud(
+                    display_frame,
+                    frame_bounds,
+                    resolved_config,
+                    hand_count,
+                    brightness,
+                    ready,
+                )
+                cv2.imshow(WINDOW_NAME, display_frame)
 
                 key_code = cv2.waitKey(1) & 0xFF
-                if key_code in (27, ord("q"), ord("Q")):
-                    return False
-                if key_code == ord(" "):
-                    return ready
-                if key_code in (13, 10):
-                    return True
+                if key_code in (
+                    27,
+                    10,
+                    13,
+                    ord(" "),
+                    ord("k"),
+                    ord("K"),
+                    ord("q"),
+                    ord("Q"),
+                ):
+                    return
     finally:
         camera.release()
         cv2.destroyWindow(WINDOW_NAME)
@@ -65,62 +90,96 @@ def average_brightness(frame) -> float:
     return float(np.mean(grayscale))
 
 
-def is_ready(config: CalibrationConfig, hand_count: int, brightness: float) -> bool:
+def is_ready(config: CameraCheckConfig, hand_count: int, brightness: float) -> bool:
     return (
         hand_count >= config.required_hands
         and config.min_brightness <= brightness <= config.max_brightness
     )
 
 
-def draw_calibration_hud(
+def draw_camera_check_hud(
     frame,
-    config: CalibrationConfig,
+    frame_bounds: tuple[int, int, int, int],
+    config: CameraCheckConfig,
     hand_count: int,
     brightness: float,
     ready: bool,
 ) -> None:
-    overlay = frame.copy()
-    cv2.rectangle(overlay, (0, 0), (frame.shape[1], 116), (10, 12, 18), -1)
-    cv2.rectangle(overlay, (0, frame.shape[0] - 92), (frame.shape[1], frame.shape[0]), (10, 12, 18), -1)
-    cv2.addWeighted(overlay, 0.76, frame, 0.24, 0, frame)
-
-    status_text = "Ready" if ready else "Adjust camera / hands"
-    status_color = (0, 230, 140) if ready else (0, 180, 255)
-
-    put_text(frame, "Calibration", (28, 44), 1.0, (245, 247, 250), 2)
-    put_text(frame, config.title, (28, 86), 0.72, (200, 210, 224), 1)
-    put_text(frame, status_text, (frame.shape[1] - 260, 48), 0.82, status_color, 2)
-
-    draw_metric(
+    height, width = frame.shape[:2]
+    x, y, camera_width, camera_height = frame_bounds
+    cv2.rectangle(
         frame,
-        "Hands",
-        f"{hand_count}/{config.required_hands}",
-        hand_count >= config.required_hands,
-        (28, frame.shape[0] - 54),
+        (x, y),
+        (x + camera_width - 1, y + camera_height - 1),
+        ui.GREEN if ready else ui.BORDER_SOFT,
+        2,
+        cv2.LINE_AA,
     )
-    draw_metric(
+
+    ui.blend_rect(frame, (0, 0), (width, 92), (10, 13, 20), 0.86)
+    cv2.line(frame, (0, 92), (width, 92), ui.BORDER_SOFT, 1, cv2.LINE_AA)
+    ui.put_text(frame, "CAMERA CHECK", (28, 38), 0.84, ui.TEXT, 2)
+    ui.put_text(frame, config.title, (30, 68), 0.50, ui.TEXT_MUTED, 1)
+
+    status_text = "READY" if ready else "ADJUST CAMERA"
+    status_color = ui.GREEN if ready else ui.YELLOW
+    status_width = 190 if ready else 230
+    ui.chip(
         frame,
-        "Brightness",
-        f"{brightness:05.1f}",
-        config.min_brightness <= brightness <= config.max_brightness,
-        (300, frame.shape[0] - 54),
+        (width - status_width - 28, 27, status_width, 38),
+        status_text,
+        color=status_color,
+        active=True,
     )
-    put_text(
+
+    footer_height = 112
+    footer_top = height - footer_height
+    ui.blend_rect(frame, (0, footer_top), (width, height), (10, 13, 20), 0.88)
+    cv2.line(frame, (0, footer_top), (width, footer_top), ui.BORDER_SOFT, 1, cv2.LINE_AA)
+
+    margin = max(16, int(width * 0.022))
+    gap = max(8, int(width * 0.010))
+    metrics_width = width - margin * 2 - gap * 2
+    hands_width = int(metrics_width * 0.25)
+    brightness_width = int(metrics_width * 0.33)
+    frame_width = metrics_width - hands_width - brightness_width
+    hands_x = margin
+    brightness_x = hands_x + hands_width + gap
+    frame_x = brightness_x + brightness_width + gap
+
+    hands_ok = hand_count >= config.required_hands
+    brightness_ok = config.min_brightness <= brightness <= config.max_brightness
+    ui.chip(
         frame,
-        "Space: Continue when ready   Enter: Skip calibration   Q/Esc: Cancel",
-        (560, frame.shape[0] - 42),
-        0.58,
-        (225, 230, 238),
+        (hands_x, footer_top + 18, hands_width, 36),
+        f"HANDS  {hand_count}/{config.required_hands}",
+        color=ui.GREEN if hands_ok else ui.YELLOW,
+        active=hands_ok,
+    )
+    ui.chip(
+        frame,
+        (brightness_x, footer_top + 18, brightness_width, 36),
+        f"BRIGHTNESS  {brightness:05.1f}",
+        color=ui.GREEN if brightness_ok else ui.YELLOW,
+        active=brightness_ok,
+    )
+    ui.chip(
+        frame,
+        (frame_x, footer_top + 18, frame_width, 36),
+        f"FRAME  {camera_width}x{camera_height}",
+        color=ui.CYAN,
+        active=False,
+    )
+    ui.put_text(
+        frame,
+        "Enter / Space / K / Q / Esc: Back to menu",
+        (margin + 2, height - 22),
+        0.56,
+        ui.TEXT_MUTED,
         1,
     )
 
 
-def draw_metric(frame, label: str, value: str, ok: bool, origin: tuple[int, int]) -> None:
-    color = (0, 230, 140) if ok else (0, 180, 255)
-    x, y = origin
-    cv2.circle(frame, (x, y - 7), 9, color, -1, cv2.LINE_AA)
-    put_text(frame, f"{label}: {value}", (x + 24, y), 0.66, (245, 247, 250), 2)
-
-
-def put_text(frame, text: str, origin: tuple[int, int], scale: float, color, thickness: int) -> None:
-    cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness, cv2.LINE_AA)
+# Backward-compatible names for integrations using the previous API.
+CalibrationConfig = CameraCheckConfig
+run_calibration = run_camera_check
