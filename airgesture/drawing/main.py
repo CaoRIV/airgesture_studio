@@ -24,12 +24,12 @@ from airgesture.drawing.letter_recognizer import (
 )
 from airgesture.drawing.stroke_state import StrokeEndDebouncer
 from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction, draw_toolbar
-from airgesture.paths import OUTPUTS_DIR
+from airgesture.paths import DRAWINGS_DIR
 from airgesture.puzzle.gesture import PinchGesture
 
 
 WINDOW_NAME = "Hand Gesture Air Drawing - Gesture Toolbar"
-OUTPUT_DIR = OUTPUTS_DIR / "saved_drawings"
+OUTPUT_DIR = DRAWINGS_DIR
 THUMB_TIP = 4
 TOOL_COLORS = {
     ToolbarAction.RED: (0, 0, 255),

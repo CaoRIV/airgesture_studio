@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77,<82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airgesture-studio"
+version = "1.0.0"
+description = "Desktop hand-gesture air drawing and puzzle experiences"
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "mediapipe==0.10.35",
+    "numpy==2.5.0",
+    "opencv-contrib-python==4.13.0.92",
+]
+
+[project.scripts]
+airgesture = "airgesture.app:main"
+
+[tool.setuptools.packages.find]
+include = ["airgesture*"]
+
+[tool.setuptools.package-data]
+"airgesture.config" = ["settings.json"]
+"airgesture.resources.models" = ["*.task"]

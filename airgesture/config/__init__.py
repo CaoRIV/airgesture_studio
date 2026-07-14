@@ -1,3 +1,15 @@
-from airgesture.config.settings import SETTINGS, AppSettings, SettingsError, load_settings
+from airgesture.config.settings import (
+    SETTINGS,
+    AppSettings,
+    SettingsError,
+    load_settings,
+    resolve_settings_path,
+)
 
-__all__ = ["SETTINGS", "AppSettings", "SettingsError", "load_settings"]
+__all__ = [
+    "SETTINGS",
+    "AppSettings",
+    "SettingsError",
+    "load_settings",
+    "resolve_settings_path",
+]

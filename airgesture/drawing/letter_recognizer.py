@@ -7,7 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from airgesture.paths import MODELS_DIR
+from airgesture.paths import BUNDLED_MODELS_DIR, get_user_models_dir
 
 
 Point = tuple[float, float]
@@ -281,7 +281,13 @@ class LetterRecognizer:
             return None
         model_path = Path(self.config.onnx_model_path)
         if not model_path.is_absolute():
-            model_path = MODELS_DIR / model_path
+            user_model_path = get_user_models_dir() / model_path
+            bundled_model_path = BUNDLED_MODELS_DIR / model_path
+            model_path = (
+                user_model_path
+                if user_model_path.is_file()
+                else bundled_model_path
+            )
         return OnnxStrokeClassifier(
             model_path=model_path,
             labels=self.config.onnx_labels,

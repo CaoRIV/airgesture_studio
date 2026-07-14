@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import json
+import os
 from pathlib import Path
+import shutil
 from typing import Any
 
 from airgesture.core.camera import CameraConfig
@@ -15,9 +17,11 @@ from airgesture.core.smoothing import (
 from airgesture.drawing.letter_recognizer import RecognitionConfig
 from airgesture.puzzle.capture_gesture import CaptureGestureConfig
 from airgesture.puzzle.gesture import PinchGestureConfig
+from airgesture.paths import get_config_dir
 
 
-DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parent / "settings.json"
+BUNDLED_SETTINGS_PATH = Path(__file__).resolve().parent / "settings.json"
+DEFAULT_SETTINGS_PATH = BUNDLED_SETTINGS_PATH
 
 
 class SettingsError(ValueError):
@@ -117,8 +121,27 @@ class AppSettings:
         )
 
 
-def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
-    settings_path = Path(path)
+def resolve_settings_path() -> Path:
+    """Create and return the writable user settings file when possible."""
+    explicit_path = os.environ.get("AIRGESTURE_SETTINGS_PATH")
+    if explicit_path:
+        return Path(explicit_path).expanduser()
+
+    user_settings_path = get_config_dir() / "settings.json"
+    if user_settings_path.is_file():
+        return user_settings_path
+
+    try:
+        user_settings_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(BUNDLED_SETTINGS_PATH, user_settings_path)
+    except OSError:
+        # Read-only or sandboxed environments can still run with bundled defaults.
+        return BUNDLED_SETTINGS_PATH
+    return user_settings_path
+
+
+def load_settings(path: str | Path | None = None) -> AppSettings:
+    settings_path = resolve_settings_path() if path is None else Path(path)
     try:
         raw = json.loads(settings_path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
