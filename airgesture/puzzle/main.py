@@ -5,7 +5,7 @@ import time
 
 import cv2
 
-from airgesture.config import SETTINGS
+from airgesture.config import require_valid_settings
 from airgesture.core.camera import Camera
 from airgesture.core.hand_tracker import HandTracker
 from airgesture.core.smoothing import PointSmoother
@@ -20,6 +20,7 @@ from airgesture.puzzle.hud import (
     draw_play_hud,
     draw_victory_hud,
 )
+from airgesture.ui.runtime_errors import run_with_error_dialog
 
 
 WINDOW_NAME = "Gesture Puzzle Game"
@@ -60,15 +61,15 @@ def board_top_left(frame_shape, board_size: int) -> tuple[int, int]:
 
 
 def main() -> int:
-    puzzle_settings = SETTINGS.puzzle
+    return run_with_error_dialog(WINDOW_NAME, _run)
+
+
+def _run() -> int:
+    settings = require_valid_settings()
+    puzzle_settings = settings.puzzle
     game_settings = puzzle_settings.game
-    camera = Camera(SETTINGS.camera)
-    if not camera.open():
-        print(
-            "Error: Could not open webcam at index 0. "
-            "Check that a webcam is connected and not being used by another app."
-        )
-        return 1
+    camera = Camera(settings.camera)
+    camera.open_or_raise()
 
     cursor_smoother = PointSmoother(puzzle_settings.cursor_smoothing)
     pinch_detector = PinchGesture(config=puzzle_settings.pinch)
@@ -84,15 +85,11 @@ def main() -> int:
     countdown_started_at = 0.0
     victory_elapsed = 0.0
 
-    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
-
     try:
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         with HandTracker(puzzle_settings.tracker) as hand_tracker:
             while True:
-                success, frame = camera.read()
-                if not success:
-                    print("Error: Could not read frame from webcam.")
-                    return 1
+                frame = camera.read_or_raise()
 
                 capture_frame = frame.copy()
                 results = hand_tracker.detect(frame)

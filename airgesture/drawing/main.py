@@ -6,11 +6,15 @@ import time
 
 import cv2
 
-from airgesture.config import SETTINGS
+from airgesture.config import require_valid_settings
 from airgesture.core.camera import Camera
 from airgesture.core.hand_tracker import HandTracker
 from airgesture.core.smoothing import AdaptivePointSmoother
-from airgesture.drawing.canvas import CanvasConfig, DrawingCanvas
+from airgesture.drawing.canvas import (
+    CanvasConfig,
+    DrawingCanvas,
+    open_output_directory,
+)
 from airgesture.drawing.display import (
     DisplayConfig,
     draw_app_overlay,
@@ -24,13 +28,19 @@ from airgesture.drawing.letter_recognizer import (
 )
 from airgesture.drawing.stroke_state import StrokeEndDebouncer
 from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction, draw_toolbar
+from airgesture.errors import DrawingSaveError, OutputDirectoryError
 from airgesture.paths import DRAWINGS_DIR
 from airgesture.puzzle.gesture import PinchGesture
+from airgesture.ui.runtime_errors import (
+    log_user_error,
+    run_with_error_dialog,
+)
 
 
 WINDOW_NAME = "Hand Gesture Air Drawing - Gesture Toolbar"
 OUTPUT_DIR = DRAWINGS_DIR
 THUMB_TIP = 4
+NOTIFICATION_SECONDS = 4.0
 TOOL_COLORS = {
     ToolbarAction.RED: (0, 0, 255),
     ToolbarAction.GREEN: (0, 230, 70),
@@ -52,9 +62,33 @@ def should_undo(key_code: int) -> bool:
     return key_code in (26, ord("u"), ord("U"), ord("z"), ord("Z"))
 
 
+def should_open_output(key_code: int) -> bool:
+    return key_code in (ord("o"), ord("O"))
+
+
 def save_filename() -> str:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return f"drawing_{timestamp}.png"
+
+
+def save_drawing_with_feedback(
+    drawing_canvas: DrawingCanvas,
+) -> tuple[str, bool]:
+    try:
+        saved_path = drawing_canvas.save(OUTPUT_DIR, save_filename())
+        return f"SAVED: {saved_path.name}", False
+    except DrawingSaveError as exc:
+        log_user_error("Drawing save failed", exc)
+        return f"SAVE FAILED: {exc}", True
+
+
+def open_drawings_with_feedback() -> tuple[str, bool]:
+    try:
+        open_output_directory(OUTPUT_DIR)
+        return "DRAWINGS FOLDER OPENED", False
+    except OutputDirectoryError as exc:
+        log_user_error("Opening drawings folder failed", exc)
+        return f"FOLDER ERROR: {exc}", True
 
 
 def point_distance(start: tuple[int, int], end: tuple[int, int]) -> float:
@@ -88,13 +122,18 @@ def finalize_stroke(
 
 
 def main() -> int:
-    air_settings = SETTINGS.air_drawing
+    return run_with_error_dialog(WINDOW_NAME, _run)
+
+
+def _run() -> int:
+    settings = require_valid_settings()
+    air_settings = settings.air_drawing
     drawing_settings = air_settings.drawing
     display_config = DisplayConfig(
-        width=SETTINGS.camera.width,
-        height=SETTINGS.camera.height,
+        width=settings.camera.width,
+        height=settings.camera.height,
     )
-    camera = Camera(SETTINGS.camera)
+    camera = Camera(settings.camera)
     drawing_canvas = DrawingCanvas(
         CanvasConfig(
             brush_thickness=drawing_settings.default_brush_size,
@@ -120,28 +159,22 @@ def main() -> int:
     last_detected_symbol: str | None = None
     last_recognition_suggestions: tuple[tuple[str, float], ...] = ()
     last_detected_until = 0.0
+    last_notification_message: str | None = None
+    last_notification_is_error = False
+    last_notification_until = 0.0
     drawing_canvas.set_brush_color(TOOL_COLORS[current_color_action])
 
-    if not camera.open():
-        print(
-            "Error: Could not open webcam at index 0. "
-            "Check that a webcam is connected and not being used by another app."
-        )
-        return 1
-
-    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+    camera.open_or_raise()
 
     try:
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         with HandTracker(air_settings.tracker) as hand_tracker:
             previous_time = time.perf_counter()
             smoothed_fps = 0.0
 
             while True:
                 frame_time = time.perf_counter()
-                success, frame = camera.read()
-                if not success:
-                    print("Error: Could not read frame from webcam.")
-                    return 1
+                frame = camera.read_or_raise()
 
                 drawing_canvas.ensure_size(frame.shape)
                 results = hand_tracker.detect(frame)
@@ -311,11 +344,21 @@ def main() -> int:
                     last_detected_until = 0.0
                 elif selected_action == ToolbarAction.SAVE:
                     drawing_canvas.clear_stroke()
-                    drawing_canvas.save(OUTPUT_DIR, save_filename())
+                    (
+                        last_notification_message,
+                        last_notification_is_error,
+                    ) = save_drawing_with_feedback(drawing_canvas)
+                    last_notification_until = current_time + NOTIFICATION_SECONDS
                     stroke_points = []
                     previous_draw_point = None
                     erase_history_started = False
                     stroke_debouncer.reset()
+                elif selected_action == ToolbarAction.OPEN_FOLDER:
+                    (
+                        last_notification_message,
+                        last_notification_is_error,
+                    ) = open_drawings_with_feedback()
+                    last_notification_until = current_time + NOTIFICATION_SECONDS
 
                 hand_detected = bool(results.hand_landmarks)
                 detected_symbol = (
@@ -328,6 +371,11 @@ def main() -> int:
                     if current_time <= last_detected_until
                     else ()
                 )
+                notification_message = (
+                    last_notification_message
+                    if current_time <= last_notification_until
+                    else None
+                )
                 draw_app_overlay(
                     display_frame,
                     frame_bounds,
@@ -336,6 +384,8 @@ def main() -> int:
                     fps=smoothed_fps,
                     detected_symbol=detected_symbol,
                     recognition_suggestions=recognition_suggestions,
+                    notification_message=notification_message,
+                    notification_is_error=last_notification_is_error,
                 )
                 draw_toolbar(
                     display_frame,
@@ -368,6 +418,14 @@ def main() -> int:
                     last_detected_symbol = None
                     last_recognition_suggestions = ()
                     last_detected_until = 0.0
+                elif should_open_output(key_code):
+                    (
+                        last_notification_message,
+                        last_notification_is_error,
+                    ) = open_drawings_with_feedback()
+                    last_notification_until = (
+                        time.perf_counter() + NOTIFICATION_SECONDS
+                    )
     finally:
         camera.release()
         cv2.destroyAllWindows()

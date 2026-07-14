@@ -100,6 +100,7 @@ Air drawing controls:
 - The top overlay shows `PHAT HIEN` for an accepted symbol or `GOI Y` with up to three uncertain candidates
 - `c`: clear drawing canvas
 - `u` or `z`: undo the last committed drawing or eraser stroke
+- `o`: open the saved drawings folder
 - `q`: quit
 - `Esc`: quit
 
@@ -109,8 +110,13 @@ Toolbar:
 - `Erase`: erase parts of the canvas
 - `Thin`, `Thick`: change brush size
 - `Clear`: clear the canvas
-- `Save`: save the drawing to `outputs/saved_drawings`
+- `Save`: atomically save the drawing to the user Drawings folder
+- `Folder`: open the saved drawings folder in Windows Explorer
 - `Undo`: restore the canvas before the last drawing or eraser stroke
+
+Save success or failure is shown directly over the drawing view. Saved files
+use microsecond timestamps, and an additional unique suffix is added rather
+than overwriting an existing file.
 
 ## Run Gesture Puzzle
 
@@ -221,10 +227,14 @@ tests/
 
 - Settings: `%LOCALAPPDATA%\AirGesture\config\settings.json`
 - Cache: `%LOCALAPPDATA%\AirGesture\cache`
-- Logs reserved for runtime logging: `%LOCALAPPDATA%\AirGesture\logs`
+- Rotating runtime log: `%LOCALAPPDATA%\AirGesture\logs\airgesture.log`
 - Optional ONNX models: `%LOCALAPPDATA%\AirGesture\models`
 - Saved drawings: `%USERPROFILE%\Documents\AirGesture\Drawings`
 
 For portable or automated environments, the roots can be overridden with
 `AIRGESTURE_DATA_DIR`, `AIRGESTURE_DOCUMENTS_DIR`, and
 `AIRGESTURE_DRAWINGS_DIR`.
+
+Camera, tracking, configuration, and unexpected OpenCV failures are shown in a
+native error dialog. Expected failures are also written to the runtime log so
+packaged builds do not depend on a visible terminal.

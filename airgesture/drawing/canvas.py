@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+from uuid import uuid4
 
 import cv2
 import numpy as np
+
+from airgesture.errors import DrawingSaveError, OutputDirectoryError
 
 
 @dataclass
@@ -191,14 +195,49 @@ class DrawingCanvas:
         mask = np.any(layer > 0, axis=2)
         frame[mask] = layer[mask]
 
-    def save(self, output_dir: str | Path, filename: str) -> Path | None:
+    def save(self, output_dir: str | Path, filename: str) -> Path:
         if self._canvas is None:
-            return None
+            raise DrawingSaveError("There is no drawing canvas to save yet.")
+
+        filename_path = Path(filename)
+        if filename_path.name != filename or not filename_path.suffix:
+            raise DrawingSaveError("The drawing filename is invalid.")
 
         output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        file_path = output_path / filename
-        cv2.imwrite(str(file_path), self._canvas)
+        try:
+            output_path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise DrawingSaveError(
+                f"Could not create the drawings folder: {output_path}"
+            ) from exc
+
+        file_path = output_path / filename_path.name
+        if file_path.exists():
+            file_path = output_path / (
+                f"{filename_path.stem}_{uuid4().hex[:8]}{filename_path.suffix}"
+            )
+
+        temporary_path = output_path / (
+            f".{file_path.stem}.{uuid4().hex}.tmp{file_path.suffix}"
+        )
+        try:
+            saved = cv2.imwrite(str(temporary_path), self._canvas)
+            if not saved:
+                raise DrawingSaveError(
+                    "OpenCV could not encode the drawing image."
+                )
+            os.replace(temporary_path, file_path)
+        except DrawingSaveError:
+            raise
+        except (cv2.error, OSError) as exc:
+            raise DrawingSaveError(
+                f"Could not save the drawing to: {file_path}"
+            ) from exc
+        finally:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
         return file_path
 
     def draw_cursor(self, frame, point: tuple[int, int], erasing: bool = False) -> None:
@@ -206,3 +245,15 @@ class DrawingCanvas:
         radius = self.config.eraser_thickness // 2 if erasing else max(10, self.config.brush_thickness + 5)
         cv2.circle(frame, point, radius, color, 2, cv2.LINE_AA)
         cv2.circle(frame, point, 4, self.config.cursor_color, -1, cv2.LINE_AA)
+
+
+def open_output_directory(output_dir: str | Path) -> Path:
+    output_path = Path(output_dir)
+    try:
+        output_path.mkdir(parents=True, exist_ok=True)
+        os.startfile(str(output_path))
+    except (AttributeError, OSError) as exc:
+        raise OutputDirectoryError(
+            f"Could not open the drawings folder: {output_path}"
+        ) from exc
+    return output_path
