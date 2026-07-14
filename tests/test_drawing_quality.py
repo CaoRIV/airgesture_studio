@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import numpy as np
 
 from airgesture.core.smoothing import AdaptivePointSmoother, AdaptiveSmoothingConfig
-from airgesture.drawing.canvas import CanvasConfig, DrawingCanvas
+from airgesture.drawing.canvas import (
+    CanvasConfig,
+    DrawingCanvas,
+    open_output_directory,
+)
 from airgesture.drawing.stroke_state import StrokeEndDebouncer
+from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction
+from airgesture.errors import DrawingSaveError
 
 
 class AdaptivePointSmootherTests(unittest.TestCase):
@@ -99,6 +108,68 @@ class CanvasUndoTests(unittest.TestCase):
 
         self.assertFalse(self.canvas.can_undo)
         self.assertFalse(self.canvas.undo())
+
+
+class CanvasSaveTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.canvas = DrawingCanvas(CanvasConfig())
+        self.canvas.ensure_size((80, 80, 3))
+        self.canvas.commit_clean_stroke([(10, 10), (70, 70)])
+
+    def test_save_writes_an_image_atomically(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            saved_path = self.canvas.save(temporary_directory, "drawing.png")
+
+            self.assertEqual(saved_path, Path(temporary_directory) / "drawing.png")
+            self.assertTrue(saved_path.is_file())
+            self.assertFalse(any(saved_path.parent.glob("*.tmp.png")))
+
+    def test_save_does_not_overwrite_an_existing_file(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            first_path = self.canvas.save(temporary_directory, "drawing.png")
+            second_path = self.canvas.save(temporary_directory, "drawing.png")
+
+            self.assertNotEqual(first_path, second_path)
+            self.assertTrue(first_path.is_file())
+            self.assertTrue(second_path.is_file())
+
+    def test_save_reports_encoder_failure(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            with patch(
+                "airgesture.drawing.canvas.cv2.imwrite",
+                return_value=False,
+            ):
+                with self.assertRaisesRegex(
+                    DrawingSaveError,
+                    "could not encode",
+                ):
+                    self.canvas.save(temporary_directory, "drawing.png")
+
+            self.assertFalse(any(Path(temporary_directory).iterdir()))
+
+    def test_open_output_directory_uses_windows_shell(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            output_path = Path(temporary_directory) / "Drawings"
+            with patch("airgesture.drawing.canvas.os.startfile") as startfile:
+                returned_path = open_output_directory(output_path)
+
+            self.assertEqual(returned_path, output_path)
+            self.assertTrue(output_path.is_dir())
+            startfile.assert_called_once_with(str(output_path))
+
+
+class ToolbarLayoutTests(unittest.TestCase):
+    def test_save_and_folder_buttons_fit_hd_display(self) -> None:
+        buttons = GestureToolbar().buttons(1280)
+
+        self.assertIn(ToolbarAction.SAVE, [button.action for button in buttons])
+        self.assertIn(
+            ToolbarAction.OPEN_FOLDER,
+            [button.action for button in buttons],
+        )
+        last_button = buttons[-1]
+        self.assertGreaterEqual(buttons[0].rect[0], 0)
+        self.assertLessEqual(last_button.rect[0] + last_button.rect[2], 1280)
 
 
 if __name__ == "__main__":

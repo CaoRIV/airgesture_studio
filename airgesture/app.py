@@ -15,9 +15,11 @@ import cv2
 import numpy as np
 
 from airgesture.calibration import CameraCheckConfig, run_camera_check
+from airgesture.config import require_valid_settings
 from airgesture.drawing import main as drawing_main
 from airgesture.puzzle import main as puzzle_main
 from airgesture.ui import theme as ui
+from airgesture.ui.runtime_errors import run_with_error_dialog
 
 
 WINDOW_NAME = "AirGesture Studio"
@@ -69,8 +71,20 @@ MENU_ITEMS = [
 
 
 def main() -> int:
+    return run_with_error_dialog(WINDOW_NAME, _run_menu)
+
+
+def _run_menu() -> int:
+    require_valid_settings()
+    try:
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        return _menu_loop()
+    finally:
+        cv2.destroyAllWindows()
+
+
+def _menu_loop() -> int:
     selected_index = 0
-    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
     while True:
         frame = render_menu(selected_index)
@@ -102,7 +116,6 @@ def main() -> int:
             # Some OpenCV builds report arrow keys through a second waitKey call.
             selected_index = selected_index
 
-    cv2.destroyAllWindows()
     return 0
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 from typing import Any
 
+from airgesture.errors import AirGestureError
 from airgesture.core.camera import CameraConfig
 from airgesture.core.hand_tracker import HandTrackerConfig
 from airgesture.core.smoothing import (
@@ -24,7 +25,7 @@ BUNDLED_SETTINGS_PATH = Path(__file__).resolve().parent / "settings.json"
 DEFAULT_SETTINGS_PATH = BUNDLED_SETTINGS_PATH
 
 
-class SettingsError(ValueError):
+class SettingsError(AirGestureError, ValueError):
     """Raised when settings.json is missing or contains invalid values."""
 
 
@@ -236,6 +237,3 @@ def _section(value: Any, name: str, expected_keys: set[str]) -> dict[str, Any]:
     if unknown_keys:
         raise KeyError(f"{name} has unknown fields: {', '.join(sorted(unknown_keys))}")
     return section
-
-
-SETTINGS = load_settings()

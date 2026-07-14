@@ -6,10 +6,12 @@ import cv2
 import numpy as np
 
 from airgesture.config import SETTINGS
+from airgesture.config import require_valid_settings
 from airgesture.core.camera import Camera
 from airgesture.core.hand_tracker import HandTracker
 from airgesture.drawing.display import DisplayConfig, fit_frame_to_display
 from airgesture.ui import theme as ui
+from airgesture.ui.runtime_errors import run_with_error_dialog
 
 
 WINDOW_NAME = "AirGesture Camera Check"
@@ -29,27 +31,29 @@ class CameraCheckConfig:
             raise ValueError("brightness must satisfy 0 <= min < max <= 255")
 
 
-def run_camera_check(config: CameraCheckConfig | None = None) -> None:
-    resolved_config = config or CameraCheckConfig()
-    camera = Camera(SETTINGS.camera)
-    if not camera.open():
-        print("Error: Could not open webcam for camera check.")
-        return
-
-    tracker_config = SETTINGS.calibration_tracker(resolved_config.required_hands)
-    display_config = DisplayConfig(
-        width=SETTINGS.camera.width,
-        height=SETTINGS.camera.height,
+def run_camera_check(config: CameraCheckConfig | None = None) -> int:
+    return run_with_error_dialog(
+        WINDOW_NAME,
+        lambda: _run_camera_check(config),
     )
-    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
 
+
+def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
+    settings = require_valid_settings()
+    resolved_config = config or CameraCheckConfig()
+    camera = Camera(settings.camera)
+    camera.open_or_raise()
+
+    tracker_config = settings.calibration_tracker(resolved_config.required_hands)
+    display_config = DisplayConfig(
+        width=settings.camera.width,
+        height=settings.camera.height,
+    )
     try:
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         with HandTracker(tracker_config) as hand_tracker:
             while True:
-                success, frame = camera.read()
-                if not success:
-                    print("Error: Could not read webcam frame during camera check.")
-                    return
+                frame = camera.read_or_raise()
 
                 results = hand_tracker.detect(frame)
                 hand_count = len(results.hand_landmarks) if results.hand_landmarks else 0
@@ -79,7 +83,7 @@ def run_camera_check(config: CameraCheckConfig | None = None) -> None:
                     ord("q"),
                     ord("Q"),
                 ):
-                    return
+                    return 0
     finally:
         camera.release()
         cv2.destroyWindow(WINDOW_NAME)

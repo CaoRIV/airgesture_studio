@@ -10,9 +10,24 @@ from airgesture.calibration import (
     CameraCheckConfig,
     draw_camera_check_hud,
 )
+from airgesture.config import SettingsError
 
 
 class MenuNavigationTests(unittest.TestCase):
+    def test_invalid_settings_show_dialog_before_menu_opens(self) -> None:
+        error = SettingsError("Invalid settings file")
+        with (
+            patch.object(app, "require_valid_settings", side_effect=error),
+            patch("airgesture.ui.runtime_errors.show_error_dialog") as dialog,
+            patch("airgesture.ui.runtime_errors.get_runtime_logger"),
+            patch.object(app.cv2, "namedWindow") as named_window,
+        ):
+            exit_code = app.main()
+
+        self.assertEqual(exit_code, 1)
+        dialog.assert_called_once_with(app.WINDOW_NAME, "Invalid settings file")
+        named_window.assert_not_called()
+
     def test_drawing_opens_directly_without_camera_check(self) -> None:
         with (
             patch.object(app.cv2, "destroyWindow"),

@@ -25,6 +25,7 @@ from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.vision.hand_landmarker import HandLandmarkerResult
 
 from airgesture.core.smoothing import OneEuroConfig, OneEuroPointFilter
+from airgesture.errors import HandTrackingError
 
 
 @dataclass(frozen=True)
@@ -60,8 +61,9 @@ class HandTracker:
         self.config = config or HandTrackerConfig()
         model_path = Path(self.config.model_asset_path)
         if not model_path.exists():
-            raise FileNotFoundError(
-                f"MediaPipe hand landmark model not found: {model_path}"
+            raise HandTrackingError(
+                "The bundled hand-tracking model is missing. "
+                "Reinstall AirGesture Studio."
             )
 
         options = vision.HandLandmarkerOptions(
@@ -72,7 +74,13 @@ class HandTracker:
             min_hand_presence_confidence=self.config.min_hand_presence_confidence,
             min_tracking_confidence=self.config.min_tracking_confidence,
         )
-        self._landmarker = vision.HandLandmarker.create_from_options(options)
+        try:
+            self._landmarker = vision.HandLandmarker.create_from_options(options)
+        except Exception as exc:
+            raise HandTrackingError(
+                "Could not initialize hand tracking. The model may be damaged "
+                "or incompatible with this installation."
+            ) from exc
         self._connections = vision.HandLandmarksConnections.HAND_CONNECTIONS
         self._started_at = time.perf_counter()
         self._last_timestamp_ms = -1
@@ -80,11 +88,18 @@ class HandTracker:
         self._missing_result_frames = 0
 
     def detect(self, frame) -> HandLandmarkerResult:
-        timestamp_ms = self._next_timestamp_ms()
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-        result = self._landmarker.detect_for_video(image, timestamp_ms)
-        return self._smooth_result(result, timestamp_ms / 1000.0)
+        try:
+            timestamp_ms = self._next_timestamp_ms()
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            result = self._landmarker.detect_for_video(image, timestamp_ms)
+            return self._smooth_result(result, timestamp_ms / 1000.0)
+        except HandTrackingError:
+            raise
+        except Exception as exc:
+            raise HandTrackingError(
+                "Hand tracking stopped while processing the camera image."
+            ) from exc
 
     def _next_timestamp_ms(self) -> int:
         timestamp_ms = int((time.perf_counter() - self._started_at) * 1000.0)

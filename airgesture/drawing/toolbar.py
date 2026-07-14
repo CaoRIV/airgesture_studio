@@ -20,6 +20,7 @@ class ToolbarAction(Enum):
     UNDO = "Undo"
     CLEAR = "Clear"
     SAVE = "Save"
+    OPEN_FOLDER = "Open Folder"
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class GestureToolbar:
             (ToolbarAction.UNDO, "Undo", (255, 190, 90)),
             (ToolbarAction.CLEAR, "Clear", (120, 150, 255)),
             (ToolbarAction.SAVE, "Save", (120, 220, 180)),
+            (ToolbarAction.OPEN_FOLDER, "Folder", (255, 190, 90)),
         ]
 
         button_width = 96
@@ -196,3 +198,7 @@ def draw_tool_icon(
         cv2.line(frame, (center[0], y + height - 8), (x + 7, y + height - 15), line_color, 2, cv2.LINE_AA)
         cv2.line(frame, (center[0], y + height - 8), (x + width - 7, y + height - 15), line_color, 2, cv2.LINE_AA)
         cv2.line(frame, (x + 4, y + height - 3), (x + width - 4, y + height - 3), line_color, 2, cv2.LINE_AA)
+    elif action == ToolbarAction.OPEN_FOLDER:
+        cv2.rectangle(frame, (x + 3, y + 7), (x + width - 3, y + height - 4), line_color, 2)
+        cv2.line(frame, (x + 4, y + 7), (x + 10, y + 2), line_color, 2, cv2.LINE_AA)
+        cv2.line(frame, (x + 10, y + 2), (x + width - 7, y + 2), line_color, 2, cv2.LINE_AA)

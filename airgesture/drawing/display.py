@@ -63,6 +63,8 @@ def draw_app_overlay(
     fps: float,
     detected_symbol: str | None = None,
     recognition_suggestions: tuple[tuple[str, float], ...] = (),
+    notification_message: str | None = None,
+    notification_is_error: bool = False,
 ) -> None:
     x, y, width, height = frame_bounds
 
@@ -138,6 +140,14 @@ def draw_app_overlay(
         active=False,
     )
     _draw_bottom_help(display_frame)
+    if notification_message:
+        ui.chip(
+            display_frame,
+            (28, display_frame.shape[0] - 108, display_frame.shape[1] - 56, 38),
+            notification_message,
+            color=ui.RED if notification_is_error else ui.GREEN,
+            active=True,
+        )
 
 
 def _draw_frame_border(display_frame, bounds: tuple[int, int, int, int]) -> None:
@@ -163,9 +173,9 @@ def _draw_bottom_help(display_frame) -> None:
     cv2.line(display_frame, (0, height - 54), (width, height - 54), ui.BORDER_SOFT, 1, cv2.LINE_AA)
     ui.put_text(
         display_frame,
-        "Pinch: Draw/Erase    2 fingers: Move/Select    U/Z: Undo    C: Clear    Q/Esc: Exit",
+        "Pinch: Draw/Erase    2 fingers: Move/Select    U/Z: Undo    C: Clear    O: Folder    Q/Esc: Exit",
         (28, height - 22),
-        0.56,
+        0.52,
         ui.TEXT_MUTED,
         1,
     )
