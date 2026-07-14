@@ -1,0 +1,3 @@
+# Tests currently use Python's standard-library unittest runner.
+# This installs the application in editable mode for development.
+-e .

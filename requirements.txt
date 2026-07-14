@@ -1,6 +1,2 @@
-opencv-python
-mediapipe
-numpy
-packaging
-python-dateutil
-six
+# Runtime installation. Dependency versions are defined once in pyproject.toml.
+.

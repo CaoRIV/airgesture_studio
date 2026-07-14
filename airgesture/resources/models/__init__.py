@@ -1,0 +1,1 @@
+"""Bundled computer-vision models."""

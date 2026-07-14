@@ -7,18 +7,36 @@ This project has two gesture-controlled experiences:
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.14 (64-bit)
+- Windows 10 or Windows 11
 - A working webcam
 
-Install dependencies:
+Create an isolated environment and install the pinned runtime dependencies:
 
 ```powershell
-D:\Python3\python.exe -m pip install -r requirements.txt
+python --version
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
+
+For development, use the editable installation file instead:
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+Runtime dependency versions have a single source of truth in `pyproject.toml`.
+The project uses `opencv-contrib-python`; do not install `opencv-python` into the
+same environment because both distributions provide the `cv2` package.
 
 ## Adjust Tracking Settings
 
-Runtime thresholds are stored in `airgesture/config/settings.json`. Restart the application after editing it.
+On first run, the bundled defaults are copied to
+`%LOCALAPPDATA%\AirGesture\config\settings.json`. Edit that writable user copy
+and restart the application after changing it. Set `AIRGESTURE_SETTINGS_PATH`
+to use a different settings file.
 
 - `camera`: camera index, resolution, FPS, mirroring, and frame buffer size
 - `air_drawing.adaptive_smoothing`: slow/fast smoothing alpha, speed range, and missing-frame tolerance
@@ -43,13 +61,13 @@ Invalid JSON, unknown fields, and unsafe values are rejected with a clear startu
 ## Run Main Menu
 
 ```powershell
-D:\Python3\python.exe -m airgesture
+.venv\Scripts\python.exe -m airgesture
 ```
 
 When the terminal is already inside the `airgesture` folder, the direct launcher is also supported:
 
 ```powershell
-D:\Python3\python.exe app.py
+.venv\Scripts\python.exe app.py
 ```
 
 Menu controls:
@@ -70,7 +88,7 @@ Camera Check:
 ## Run Air Drawing
 
 ```powershell
-D:\Python3\python.exe -m airgesture.drawing.main
+.venv\Scripts\python.exe -m airgesture.drawing.main
 ```
 
 Air drawing controls:
@@ -97,7 +115,7 @@ Toolbar:
 ## Run Gesture Puzzle
 
 ```powershell
-D:\Python3\python.exe -m airgesture.puzzle.main
+.venv\Scripts\python.exe -m airgesture.puzzle.main
 ```
 
 Puzzle controls:
@@ -155,7 +173,10 @@ Not implemented yet:
 
 ## Optional ONNX Recognition
 
-Set `air_drawing.recognition.onnx_model_path` in `airgesture/config/settings.json` to a model filename stored under `models/`. Leave it as `null` to use template recognition only.
+Set `air_drawing.recognition.onnx_model_path` in the user settings file to a
+model filename stored under `%LOCALAPPDATA%\AirGesture\models`. Leave it as
+`null` to use template recognition only. An absolute model path is also
+supported.
 
 The configured model must accept a normalized grayscale stroke tensor shaped `1 x 1 x 64 x 64` and return one score for each character in `onnx_labels`. By default the expected output order is `A-Z`, followed by `0-9`. Template and ONNX scores are combined using `onnx_weight` before confidence and ambiguity checks are applied.
 
@@ -170,6 +191,9 @@ airgesture/
 |-- config/
 |   |-- settings.py
 |   `-- settings.json
+|-- resources/
+|   `-- models/
+|       `-- hand_landmarker.task
 |-- core/
 |   |-- camera.py
 |   |-- hand_tracker.py
@@ -190,7 +214,17 @@ airgesture/
 `-- ui/
     `-- theme.py
 
-models/
-outputs/
 tests/
 ```
+
+## Runtime Data Locations
+
+- Settings: `%LOCALAPPDATA%\AirGesture\config\settings.json`
+- Cache: `%LOCALAPPDATA%\AirGesture\cache`
+- Logs reserved for runtime logging: `%LOCALAPPDATA%\AirGesture\logs`
+- Optional ONNX models: `%LOCALAPPDATA%\AirGesture\models`
+- Saved drawings: `%USERPROFILE%\Documents\AirGesture\Drawings`
+
+For portable or automated environments, the roots can be overridden with
+`AIRGESTURE_DATA_DIR`, `AIRGESTURE_DOCUMENTS_DIR`, and
+`AIRGESTURE_DRAWINGS_DIR`.

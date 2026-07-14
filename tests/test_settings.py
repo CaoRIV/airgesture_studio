@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from airgesture.config import SETTINGS, SettingsError, load_settings
+from airgesture.config import SettingsError, load_settings, resolve_settings_path
+from airgesture.config.settings import BUNDLED_SETTINGS_PATH
 from airgesture.puzzle.capture_gesture import (
     CaptureGestureConfig,
     TwoHandSpreadCaptureGesture,
@@ -10,8 +14,8 @@ from airgesture.puzzle.capture_gesture import (
 
 
 class SettingsTests(unittest.TestCase):
-    def test_loads_default_json_settings(self) -> None:
-        settings = load_settings()
+    def test_loads_bundled_json_settings(self) -> None:
+        settings = load_settings(BUNDLED_SETTINGS_PATH)
 
         self.assertEqual(settings.camera.fps, 30)
         self.assertEqual(settings.air_drawing.drawing.thin_brush_size, 7)
@@ -28,14 +32,45 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.calibration.max_brightness, 220.0)
 
     def test_calibration_hand_count_does_not_mutate_base_settings(self) -> None:
-        tracker = SETTINGS.calibration_tracker(required_hands=2)
+        settings = load_settings(BUNDLED_SETTINGS_PATH)
+        tracker = settings.calibration_tracker(required_hands=2)
 
         self.assertEqual(tracker.max_num_hands, 2)
-        self.assertEqual(SETTINGS.calibration.tracker.max_num_hands, 1)
+        self.assertEqual(settings.calibration.tracker.max_num_hands, 1)
 
     def test_missing_settings_file_has_clear_error(self) -> None:
         with self.assertRaisesRegex(SettingsError, "Settings file not found"):
             load_settings("does-not-exist.json")
+
+    def test_default_settings_are_copied_to_user_config_directory(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            with patch.dict(
+                "os.environ",
+                {"AIRGESTURE_DATA_DIR": temporary_directory},
+                clear=True,
+            ):
+                settings_path = resolve_settings_path()
+                settings = load_settings()
+
+                self.assertEqual(
+                    settings_path,
+                    Path(temporary_directory) / "config" / "settings.json",
+                )
+                self.assertTrue(settings_path.is_file())
+
+        self.assertEqual(settings.camera.fps, 30)
+
+    def test_explicit_settings_path_is_not_replaced_by_defaults(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            missing_path = Path(temporary_directory) / "custom-settings.json"
+            with patch.dict(
+                "os.environ",
+                {"AIRGESTURE_SETTINGS_PATH": str(missing_path)},
+                clear=True,
+            ):
+                self.assertEqual(resolve_settings_path(), missing_path)
+                with self.assertRaisesRegex(SettingsError, "Settings file not found"):
+                    load_settings()
 
     def test_capture_gesture_uses_provided_config(self) -> None:
         config = CaptureGestureConfig(

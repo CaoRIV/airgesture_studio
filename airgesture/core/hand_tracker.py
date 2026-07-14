@@ -3,15 +3,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
+import tempfile
 import time
 
 import cv2
 
-from airgesture.paths import CACHE_DIR, MODELS_DIR
+from airgesture.paths import BUNDLED_MODELS_DIR, CACHE_DIR
 
 _matplotlib_cache_dir = CACHE_DIR / "matplotlib"
-_matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
-os.environ.setdefault("MPLCONFIGDIR", str(_matplotlib_cache_dir))
+try:
+    _matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
+except OSError:
+    _matplotlib_cache_dir = Path(tempfile.gettempdir()) / "AirGesture" / "matplotlib"
+    _matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
+os.environ["MPLCONFIGDIR"] = str(_matplotlib_cache_dir)
 
 import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
@@ -31,7 +36,7 @@ class HandTrackerConfig:
     filter_reset_after_missing_frames: int = 5
     landmark_filter: OneEuroConfig = field(default_factory=OneEuroConfig)
     model_asset_path: str = str(
-        MODELS_DIR / "hand_landmarker.task"
+        BUNDLED_MODELS_DIR / "hand_landmarker.task"
     )
 
     def __post_init__(self) -> None:
