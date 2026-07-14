@@ -38,7 +38,7 @@ On first run, the bundled defaults are copied to
 and restart the application after changing it. Set `AIRGESTURE_SETTINGS_PATH`
 to use a different settings file.
 
-- `camera`: camera index, resolution, FPS, mirroring, and frame buffer size
+- `camera`: camera index, resolution, FPS, mirroring, discovery limit, read-failure tolerance, and reconnect policy
 - `air_drawing.adaptive_smoothing`: slow/fast smoothing alpha, speed range, and missing-frame tolerance
 - `air_drawing.pinch`: pinch/release distances and missing-frame tolerance
 - `air_drawing.recognition`: snap confidence, runner-up margin, top suggestions, raster image, and optional ONNX model
@@ -76,6 +76,8 @@ Menu controls:
 - `2`: Gesture Puzzle
 - `K`: optional Camera Check
 - `W` / `S`: select menu item
+- `A` / `D`: select the previous or next discovered camera
+- `R`: rescan connected cameras
 - `Enter`: open selected item
 - `Q` or `Esc`: quit
 
@@ -83,7 +85,13 @@ Camera Check:
 
 - Air Drawing and Gesture Puzzle now open directly without a calibration step
 - Press `K` from the menu to inspect camera framing, brightness, and hand tracking
+- The window title reports the active camera index, backend, actual resolution, and driver-reported FPS
 - `Enter`, `Space`, `K`, `Q`, or `Esc`: return to the menu
+
+Camera selection applies to Drawing, Puzzle, and Camera Check for the current
+application session. On Windows, camera startup falls back through DirectShow,
+Media Foundation, and the default OpenCV backend. Brief frame failures are
+retried, followed by bounded automatic reconnection attempts when necessary.
 
 ## Run Air Drawing
 
@@ -142,6 +150,10 @@ Puzzle controls:
 Implemented:
 
 - Webcam capture with mirrored preview
+- Runtime camera discovery and A/D camera selection from the main menu
+- Windows camera backend fallback: DirectShow, Media Foundation, then default
+- Actual camera backend, resolution, and driver-reported FPS in window titles
+- Bounded frame retry and automatic camera reconnection
 - MediaPipe hand landmark detection
 - MediaPipe video-mode tracking with monotonic frame timestamps
 - Adaptive One Euro filtering across all 21 hand landmarks

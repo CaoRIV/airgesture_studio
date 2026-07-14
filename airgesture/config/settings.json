@@ -5,7 +5,11 @@
     "width": 1280,
     "height": 720,
     "fps": 30,
-    "buffer_size": 1
+    "buffer_size": 1,
+    "discovery_max_devices": 5,
+    "read_failure_tolerance": 2,
+    "reconnect_attempts": 3,
+    "reconnect_delay_seconds": 0.20
   },
   "air_drawing": {
     "tracker": {

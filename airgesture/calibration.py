@@ -51,6 +51,7 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
     )
     try:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        camera.apply_window_title(WINDOW_NAME)
         with HandTracker(tracker_config) as hand_tracker:
             while True:
                 frame = camera.read_or_raise()
@@ -69,6 +70,7 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
                     hand_count,
                     brightness,
                     ready,
+                    camera_label=camera.status_label,
                 )
                 cv2.imshow(WINDOW_NAME, display_frame)
 
@@ -108,6 +110,7 @@ def draw_camera_check_hud(
     hand_count: int,
     brightness: float,
     ready: bool,
+    camera_label: str | None = None,
 ) -> None:
     height, width = frame.shape[:2]
     x, y, camera_width, camera_height = frame_bounds
@@ -124,6 +127,8 @@ def draw_camera_check_hud(
     cv2.line(frame, (0, 92), (width, 92), ui.BORDER_SOFT, 1, cv2.LINE_AA)
     ui.put_text(frame, "CAMERA CHECK", (28, 38), 0.84, ui.TEXT, 2)
     ui.put_text(frame, config.title, (30, 68), 0.50, ui.TEXT_MUTED, 1)
+    if camera_label:
+        ui.put_text(frame, camera_label, (30, 87), 0.40, ui.TEXT_DIM, 1)
 
     status_text = "READY" if ready else "ADJUST CAMERA"
     status_color = ui.GREEN if ready else ui.YELLOW

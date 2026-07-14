@@ -9,6 +9,18 @@ class CameraError(AirGestureError):
     """Raised when a webcam cannot be opened or read."""
 
 
+class CameraNotFoundError(CameraError):
+    """Raised when the selected camera was not found during discovery."""
+
+
+class CameraAccessError(CameraError):
+    """Raised when a discovered camera cannot be opened."""
+
+
+class CameraDisconnectedError(CameraError):
+    """Raised when an active camera disconnects and recovery fails."""
+
+
 class HandTrackingError(AirGestureError):
     """Raised when the hand-tracking model cannot start or process a frame."""
 
