@@ -61,6 +61,33 @@ def show_error_dialog(title: str, message: str) -> None:
             pass
 
 
+def show_yes_no_dialog(
+    title: str,
+    message: str,
+    *,
+    default_yes: bool = False,
+) -> bool:
+    """Show a native consent question; safely decline without a GUI."""
+    if os.environ.get("AIRGESTURE_NO_DIALOGS") == "1":
+        return False
+
+    if sys.platform == "win32":
+        try:
+            yes_no = 0x04
+            information = 0x40
+            default_button = 0x00 if default_yes else 0x100
+            result = ctypes.windll.user32.MessageBoxW(
+                None,
+                message,
+                title,
+                yes_no | information | default_button,
+            )
+            return result == 6
+        except (AttributeError, OSError):
+            pass
+    return False
+
+
 def run_with_error_dialog(title: str, operation: Callable[[], int | None]) -> int:
     """Run an application surface and convert failures into user feedback."""
     logger = get_runtime_logger()

@@ -159,7 +159,8 @@ Implemented:
 - Adaptive One Euro filtering across all 21 hand landmarks
 - Separate tracking profiles for drawing, puzzle, and optional Camera Check
 - Two-frame cursor and pinch dropout tolerance for brief detection loss
-- Local MediaPipe Tasks model at `models/hand_landmarker.task`
+- Local MediaPipe Tasks model at
+  `airgesture/resources/models/hand_landmarker.task`
 - Home menu launcher for selecting drawing or puzzle mode
 - Optional responsive Camera Check screen with hand-count and brightness diagnostics
 - Gesture-controlled 3x3 webcam puzzle game
@@ -238,6 +239,7 @@ tests/
 ## Runtime Data Locations
 
 - Settings: `%LOCALAPPDATA%\AirGesture\config\settings.json`
+- MediaPipe metrics consent: `%LOCALAPPDATA%\AirGesture\privacy.json`
 - Cache: `%LOCALAPPDATA%\AirGesture\cache`
 - Rotating runtime log: `%LOCALAPPDATA%\AirGesture\logs\airgesture.log`
 - Optional ONNX models: `%LOCALAPPDATA%\AirGesture\models`
@@ -250,3 +252,18 @@ For portable or automated environments, the roots can be overridden with
 Camera, tracking, configuration, and unexpected OpenCV failures are shown in a
 native error dialog. Expected failures are also written to the runtime log so
 packaged builds do not depend on a visible terminal.
+
+## Privacy and Licensing
+
+Before the first hand-tracking session, AirGesture displays a privacy notice
+and requires explicit consent for MediaPipe's operational metrics processing.
+The default choice is No, and declining prevents the MediaPipe Task from being
+initialized. Camera frames and hand landmarks are processed locally.
+
+See [PRIVACY.md](PRIVACY.md) for data locations, retention, consent revocation,
+and strict offline deployment guidance. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for exact dependency versions,
+model provenance, required license files, and the remaining model redistribution
+approval item. AirGesture source code is currently marked all-rights-reserved in
+[LICENSE](LICENSE); the copyright holder should replace that choice before a
+public open-source release if a permissive or copyleft license is intended.

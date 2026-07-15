@@ -26,6 +26,7 @@ from mediapipe.tasks.python.vision.hand_landmarker import HandLandmarkerResult
 
 from airgesture.core.smoothing import OneEuroConfig, OneEuroPointFilter
 from airgesture.errors import HandTrackingError
+from airgesture.privacy import require_metrics_consent
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,8 @@ class HandTracker:
                 "The bundled hand-tracking model is missing. "
                 "Reinstall AirGesture Studio."
             )
+
+        require_metrics_consent()
 
         options = vision.HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),
