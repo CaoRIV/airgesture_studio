@@ -87,6 +87,7 @@ def _run() -> int:
 
     try:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        camera.apply_window_title(WINDOW_NAME)
         with HandTracker(puzzle_settings.tracker) as hand_tracker:
             while True:
                 frame = camera.read_or_raise()

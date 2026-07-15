@@ -16,6 +16,7 @@ import numpy as np
 
 from airgesture.calibration import CameraCheckConfig, run_camera_check
 from airgesture.config import require_valid_settings
+from airgesture.core.camera import Camera, CameraConfig
 from airgesture.drawing import main as drawing_main
 from airgesture.puzzle import main as puzzle_main
 from airgesture.ui import theme as ui
@@ -75,19 +76,27 @@ def main() -> int:
 
 
 def _run_menu() -> int:
-    require_valid_settings()
+    settings = require_valid_settings()
+    camera_indices = refresh_camera_indices(settings.camera)
     try:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
-        return _menu_loop()
+        return _menu_loop(settings.camera, camera_indices)
     finally:
         cv2.destroyAllWindows()
 
 
-def _menu_loop() -> int:
+def _menu_loop(
+    camera_config: CameraConfig,
+    camera_indices: list[int],
+) -> int:
     selected_index = 0
 
     while True:
-        frame = render_menu(selected_index)
+        frame = render_menu(
+            selected_index,
+            camera_index=camera_config.camera_index,
+            camera_indices=camera_indices,
+        )
         cv2.imshow(WINDOW_NAME, frame)
         key_code = cv2.waitKey(30) & 0xFF
 
@@ -95,28 +104,70 @@ def _menu_loop() -> int:
             break
         if key_code in (ord("1"),):
             run_action(MenuAction.DRAWING)
+            camera_indices = refresh_camera_indices(camera_config)
             cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         elif key_code in (ord("2"),):
             run_action(MenuAction.PUZZLE)
+            camera_indices = refresh_camera_indices(camera_config)
             cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         elif key_code in (ord("k"), ord("K")):
             run_action(MenuAction.CAMERA_CHECK)
+            camera_indices = refresh_camera_indices(camera_config)
             cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         elif key_code in (13, 10):
             action = MENU_ITEMS[selected_index].action
             if action == MenuAction.QUIT:
                 break
             run_action(action)
+            camera_indices = refresh_camera_indices(camera_config)
             cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         elif key_code in (ord("w"), ord("W")):
             selected_index = (selected_index - 1) % len(MENU_ITEMS)
         elif key_code in (ord("s"), ord("S")):
             selected_index = (selected_index + 1) % len(MENU_ITEMS)
+        elif key_code in (ord("a"), ord("A")):
+            camera_config.camera_index = cycle_camera_index(
+                camera_indices,
+                camera_config.camera_index,
+                -1,
+            )
+        elif key_code in (ord("d"), ord("D")):
+            camera_config.camera_index = cycle_camera_index(
+                camera_indices,
+                camera_config.camera_index,
+                1,
+            )
+        elif key_code in (ord("r"), ord("R")):
+            camera_indices = refresh_camera_indices(camera_config)
         elif key_code == 0:
             # Some OpenCV builds report arrow keys through a second waitKey call.
             selected_index = selected_index
 
     return 0
+
+
+def refresh_camera_indices(camera_config: CameraConfig) -> list[int]:
+    camera_indices = Camera.discover_indices(
+        max_devices=camera_config.discovery_max_devices,
+    )
+    camera_config.available_indices = tuple(camera_indices)
+    if camera_indices and camera_config.camera_index not in camera_indices:
+        camera_config.camera_index = camera_indices[0]
+    return camera_indices
+
+
+def cycle_camera_index(
+    camera_indices: list[int],
+    current_index: int,
+    direction: int,
+) -> int:
+    if not camera_indices:
+        return current_index
+    try:
+        current_position = camera_indices.index(current_index)
+    except ValueError:
+        return camera_indices[0]
+    return camera_indices[(current_position + direction) % len(camera_indices)]
 
 
 def run_action(action: MenuAction) -> None:
@@ -134,7 +185,11 @@ def run_action(action: MenuAction) -> None:
         )
 
 
-def render_menu(selected_index: int):
+def render_menu(
+    selected_index: int,
+    camera_index: int = 0,
+    camera_indices: list[int] | None = None,
+):
     frame = np.zeros((MENU_HEIGHT, MENU_WIDTH, 3), dtype=np.uint8)
     draw_background(frame)
 
@@ -150,7 +205,7 @@ def render_menu(selected_index: int):
     )
 
     draw_mode_visual(frame)
-    draw_system_strip(frame)
+    draw_system_strip(frame, camera_index, camera_indices)
 
     ui.panel(frame, (612, 138, 594, 470), fill=(16, 20, 29), border=ui.BORDER_SOFT, alpha=0.90)
     ui.put_text(frame, "Select Mode", (640, 180), 0.82, ui.TEXT, 2)
@@ -169,9 +224,9 @@ def render_menu(selected_index: int):
     ui.panel(frame, (58, MENU_HEIGHT - 68, MENU_WIDTH - 116, 42), fill=(16, 20, 28), border=ui.BORDER_SOFT, alpha=0.82, shadow=False)
     ui.put_text(
         frame,
-        "1 Drawing    2 Puzzle    K Camera Check    W/S Select    Enter Open    Q/Esc Quit",
+        "1 Drawing   2 Puzzle   K Check   W/S Select   A/D Camera   R Rescan   Enter Open   Q/Esc Quit",
         (78, MENU_HEIGHT - 41),
-        0.56,
+        0.48,
         ui.TEXT_MUTED,
         1,
     )
@@ -210,13 +265,30 @@ def draw_mode_visual(frame) -> None:
     cv2.rectangle(frame, (grid_x + cell, grid_y + cell), (grid_x + cell * 2 - 4, grid_y + cell * 2 - 4), ui.GREEN, 3, cv2.LINE_AA)
 
 
-def draw_system_strip(frame) -> None:
+def draw_system_strip(
+    frame,
+    camera_index: int = 0,
+    camera_indices: list[int] | None = None,
+) -> None:
     ui.panel(frame, (70, 520, 490, 74), fill=(16, 20, 28), border=ui.BORDER_SOFT, alpha=0.88)
-    labels = [
-        ("WEBCAM", ui.CYAN),
-        ("MEDIAPIPE", ui.GREEN),
-        ("REALTIME", ui.YELLOW),
-    ]
+    if camera_indices is None:
+        labels = [
+            ("WEBCAM", ui.CYAN),
+            ("MEDIAPIPE", ui.GREEN),
+            ("REALTIME", ui.YELLOW),
+        ]
+    elif camera_indices:
+        labels = [
+            (f"CAMERA {camera_index}", ui.CYAN),
+            (f"{len(camera_indices)} FOUND", ui.GREEN),
+            ("A/D CHANGE", ui.YELLOW),
+        ]
+    else:
+        labels = [
+            ("NO CAMERA", ui.RED),
+            ("CHECK USB", ui.YELLOW),
+            ("R RESCAN", ui.CYAN),
+        ]
     x = 96
     for label, color in labels:
         ui.chip(frame, (x, 542, 128, 32), label, color=color, active=True)

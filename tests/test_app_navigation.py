@@ -11,6 +11,7 @@ from airgesture.calibration import (
     draw_camera_check_hud,
 )
 from airgesture.config import SettingsError
+from airgesture.core.camera import CameraConfig
 
 
 class MenuNavigationTests(unittest.TestCase):
@@ -67,6 +68,27 @@ class MenuNavigationTests(unittest.TestCase):
             frame = app.render_menu(selected_index)
             self.assertEqual(frame.shape, (720, 1280, 3))
             self.assertGreater(int(np.count_nonzero(frame)), 0)
+
+    def test_camera_selection_cycles_through_discovered_indices(self) -> None:
+        self.assertEqual(app.cycle_camera_index([0, 2], 0, 1), 2)
+        self.assertEqual(app.cycle_camera_index([0, 2], 2, 1), 0)
+        self.assertEqual(app.cycle_camera_index([0, 2], 0, -1), 2)
+
+    def test_rescan_selects_first_available_camera(self) -> None:
+        config = CameraConfig(camera_index=4, discovery_max_devices=6)
+        with patch.object(app.Camera, "discover_indices", return_value=[1, 3]) as discover:
+            indices = app.refresh_camera_indices(config)
+
+        self.assertEqual(indices, [1, 3])
+        self.assertEqual(config.camera_index, 1)
+        self.assertEqual(config.available_indices, (1, 3))
+        discover.assert_called_once_with(max_devices=6)
+
+    def test_menu_renders_no_camera_state(self) -> None:
+        frame = app.render_menu(0, camera_index=0, camera_indices=[])
+
+        self.assertEqual(frame.shape, (720, 1280, 3))
+        self.assertGreater(int(np.count_nonzero(frame)), 0)
 
 
 class CameraCheckLayoutTests(unittest.TestCase):

@@ -18,6 +18,9 @@ class SettingsTests(unittest.TestCase):
         settings = load_settings(BUNDLED_SETTINGS_PATH)
 
         self.assertEqual(settings.camera.fps, 30)
+        self.assertEqual(settings.camera.discovery_max_devices, 5)
+        self.assertEqual(settings.camera.read_failure_tolerance, 2)
+        self.assertEqual(settings.camera.reconnect_attempts, 3)
         self.assertEqual(settings.air_drawing.drawing.thin_brush_size, 7)
         self.assertAlmostEqual(settings.air_drawing.adaptive_smoothing.slow_alpha, 0.18)
         self.assertEqual(settings.air_drawing.drawing.max_undo_steps, 20)
