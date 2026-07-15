@@ -25,6 +25,10 @@ class HandTrackingError(AirGestureError):
     """Raised when the hand-tracking model cannot start or process a frame."""
 
 
+class PrivacyConsentRequiredError(AirGestureError):
+    """Raised when MediaPipe metrics consent has not been granted."""
+
+
 class DrawingSaveError(AirGestureError):
     """Raised when a drawing cannot be written to disk."""
 
