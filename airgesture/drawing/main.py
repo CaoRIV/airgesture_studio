@@ -20,6 +20,7 @@ from airgesture.drawing.display import (
     draw_app_overlay,
     fit_frame_to_display,
     frame_point_to_display,
+    frame_point_to_workspace,
 )
 from airgesture.drawing.gesture_controller import GestureController, GestureMode
 from airgesture.drawing.letter_recognizer import (
@@ -267,9 +268,6 @@ def _run() -> int:
 
                 frame = drawing_canvas.compose(frame)
                 hand_tracker.draw_landmarks(frame, results)
-                if index_tip is not None:
-                    drawing_canvas.draw_cursor(frame, index_tip, erasing=erasing)
-
                 current_time = time.perf_counter()
                 instant_fps = 1.0 / max(current_time - previous_time, 0.0001)
                 previous_time = current_time
@@ -282,13 +280,20 @@ def _run() -> int:
                     frame,
                     DisplayConfig(width=viewport.width, height=viewport.height),
                 )
-                cursor_display_point = frame_point_to_display(
+                camera_cursor_point = frame_point_to_display(
                     index_tip,
                     frame.shape,
                     frame_bounds,
                 )
+                toolbar_cursor_point = frame_point_to_workspace(
+                    index_tip,
+                    frame.shape,
+                    display_frame.shape,
+                )
                 hovered_action = toolbar.hit_test(
-                    cursor_display_point if gesture_state.mode == GestureMode.MOVE and not pinch.active else None,
+                    toolbar_cursor_point
+                    if gesture_state.mode == GestureMode.MOVE and not pinch.active
+                    else None,
                     display_frame.shape[1],
                     display_frame.shape[0],
                 )
@@ -397,6 +402,18 @@ def _run() -> int:
                     active_toolbar_action,
                     hovered_action,
                 )
+                if index_tip is not None:
+                    visible_cursor_point = (
+                        toolbar_cursor_point
+                        if gesture_state.mode == GestureMode.MOVE and not pinch.active
+                        else camera_cursor_point
+                    )
+                    if visible_cursor_point is not None:
+                        drawing_canvas.draw_cursor(
+                            display_frame,
+                            visible_cursor_point,
+                            erasing=erasing,
+                        )
 
                 window.present(display_frame)
                 key_code = cv2.waitKeyEx(1)

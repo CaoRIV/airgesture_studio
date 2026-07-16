@@ -13,6 +13,12 @@ from airgesture.drawing.canvas import (
     DrawingCanvas,
     open_output_directory,
 )
+from airgesture.drawing.display import (
+    DisplayConfig,
+    fit_frame_to_display,
+    frame_point_to_display,
+    frame_point_to_workspace,
+)
 from airgesture.drawing.stroke_state import StrokeEndDebouncer
 from airgesture.drawing.toolbar import GestureToolbar, ToolbarAction
 from airgesture.errors import DrawingSaveError
@@ -171,10 +177,11 @@ class ToolbarLayoutTests(unittest.TestCase):
         self.assertGreaterEqual(buttons[0].rect[0], 0)
         self.assertLessEqual(last_button.rect[0] + last_button.rect[2], 1280)
 
-    def test_toolbar_uses_two_rows_at_hd(self) -> None:
+    def test_toolbar_uses_one_row_at_hd(self) -> None:
         buttons = GestureToolbar().buttons(1280, 720)
 
-        self.assertEqual(len({button.rect[1] for button in buttons}), 2)
+        self.assertEqual(len({button.rect[1] for button in buttons}), 1)
+        self.assertLess(max(button.rect[1] for button in buttons), 50)
 
     def test_toolbar_uses_one_row_on_wide_display(self) -> None:
         buttons = GestureToolbar().buttons(1920, 1080)
@@ -190,6 +197,72 @@ class ToolbarLayoutTests(unittest.TestCase):
             self.assertGreaterEqual(y, 0)
             self.assertLessEqual(x + width, 640)
             self.assertLessEqual(y + height, 480)
+
+
+class DrawingDisplayLayoutTests(unittest.TestCase):
+    def test_camera_uses_a_wide_primary_viewport(self) -> None:
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+        output, bounds = fit_frame_to_display(frame, DisplayConfig())
+
+        self.assertEqual(output.shape, (720, 1280, 3))
+        self.assertGreaterEqual(bounds[2], 1240)
+        self.assertGreaterEqual(bounds[3], 500)
+
+    def test_camera_bounds_scale_with_the_display(self) -> None:
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+        output, bounds = fit_frame_to_display(
+            frame,
+            DisplayConfig(width=1600, height=900),
+        )
+
+        self.assertEqual(output.shape, (900, 1600, 3))
+        self.assertGreaterEqual(bounds[2], 1400)
+        self.assertLessEqual(bounds[0] + bounds[2], 1600)
+
+    def test_wide_camera_preserves_aspect_ratio_with_vertical_crop(self) -> None:
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+        _, bounds = fit_frame_to_display(frame, DisplayConfig())
+
+        self.assertGreater(bounds.source_y, 0)
+        assert bounds.source_width is not None
+        assert bounds.source_height is not None
+        self.assertAlmostEqual(
+            bounds.source_width / bounds.source_height,
+            bounds.width / bounds.height,
+            places=2,
+        )
+
+    def test_cursor_mapping_accounts_for_camera_crop(self) -> None:
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        output, bounds = fit_frame_to_display(frame, DisplayConfig())
+        assert bounds.source_height is not None
+        source_center = (
+            640,
+            bounds.source_y + bounds.source_height // 2,
+        )
+
+        camera_point = frame_point_to_display(
+            source_center,
+            frame.shape,
+            bounds,
+        )
+        workspace_point = frame_point_to_workspace(
+            source_center,
+            frame.shape,
+            output.shape,
+        )
+
+        self.assertEqual(camera_point[0], 640)
+        self.assertAlmostEqual(
+            camera_point[1],
+            bounds.y + bounds.height // 2,
+            delta=1,
+        )
+        self.assertEqual(workspace_point[0], 640)
+        self.assertAlmostEqual(workspace_point[1], 360, delta=1)
 
 
 if __name__ == "__main__":
