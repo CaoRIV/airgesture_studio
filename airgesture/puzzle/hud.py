@@ -22,7 +22,7 @@ def draw_capture_hud(
     _draw_bottom_panel(
         frame,
         capture_message,
-        "Open hands wide, hold still briefly    3/4 Difficulty    Space/Enter/C Fallback",
+        "Open hands wide and hold still    3/4 Difficulty    F11 Fullscreen    Space/Enter/C Capture",
         hand_color,
     )
 
@@ -121,7 +121,7 @@ def draw_play_hud(
     _draw_bottom_panel(
         frame,
         selected_text,
-        "Pinch tile -> drag to another tile -> release to swap    R Restart    Q/Esc Quit",
+        "Pinch, drag, and release to swap    R Restart    F11 Fullscreen    Q/Esc Exit",
         ui.GREEN if selected_tile is not None else ui.CYAN,
     )
 
@@ -134,7 +134,7 @@ def draw_victory_hud(frame, elapsed_seconds: float, moves: int) -> None:
     _put_center(frame, "PUZZLE COMPLETE", (center_x, center_y - 92), 1.28, ui.GREEN, 3)
     ui.chip(frame, (center_x - 210, center_y - 18, 188, 42), f"TIME {elapsed_seconds:05.1f}s", color=ui.CYAN, active=True)
     ui.chip(frame, (center_x + 22, center_y - 18, 188, 42), f"MOVES {moves}", color=ui.GREEN, active=True)
-    _put_center(frame, "R Restart    Q/Esc Exit", (center_x, center_y + 94), 0.70, ui.TEXT_MUTED, 1)
+    _put_center(frame, "R Restart    F11 Fullscreen    Q/Esc Exit", (center_x, center_y + 94), 0.62, ui.TEXT_MUTED, 1)
 
 
 def draw_cursor(frame, point: tuple[int, int] | None, pinch_active: bool) -> None:

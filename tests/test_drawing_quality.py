@@ -171,6 +171,26 @@ class ToolbarLayoutTests(unittest.TestCase):
         self.assertGreaterEqual(buttons[0].rect[0], 0)
         self.assertLessEqual(last_button.rect[0] + last_button.rect[2], 1280)
 
+    def test_toolbar_uses_two_rows_at_hd(self) -> None:
+        buttons = GestureToolbar().buttons(1280, 720)
+
+        self.assertEqual(len({button.rect[1] for button in buttons}), 2)
+
+    def test_toolbar_uses_one_row_on_wide_display(self) -> None:
+        buttons = GestureToolbar().buttons(1920, 1080)
+
+        self.assertEqual(len({button.rect[1] for button in buttons}), 1)
+
+    def test_toolbar_never_clips_on_narrow_display(self) -> None:
+        buttons = GestureToolbar().buttons(640, 480)
+
+        for button in buttons:
+            x, y, width, height = button.rect
+            self.assertGreaterEqual(x, 0)
+            self.assertGreaterEqual(y, 0)
+            self.assertLessEqual(x + width, 640)
+            self.assertLessEqual(y + height, 480)
+
 
 if __name__ == "__main__":
     unittest.main()

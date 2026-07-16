@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import cv2
 
 
@@ -20,6 +22,57 @@ GREEN = (118, 238, 72)
 YELLOW = (0, 216, 255)
 RED = (72, 84, 255)
 WHITE = (250, 250, 250)
+
+
+@dataclass(frozen=True)
+class Layout:
+    """Map the 1280x720 design grid into an arbitrary viewport."""
+
+    width: int
+    height: int
+    base_width: int = 1280
+    base_height: int = 720
+
+    @property
+    def scale(self) -> float:
+        return min(self.width / self.base_width, self.height / self.base_height)
+
+    @property
+    def offset_x(self) -> int:
+        return int(round((self.width - self.base_width * self.scale) / 2.0))
+
+    @property
+    def offset_y(self) -> int:
+        return int(round((self.height - self.base_height * self.scale) / 2.0))
+
+    def x(self, value: float) -> int:
+        return self.offset_x + int(round(value * self.scale))
+
+    def y(self, value: float) -> int:
+        return self.offset_y + int(round(value * self.scale))
+
+    def px(self, value: float, *, minimum: int = 1) -> int:
+        return max(minimum, int(round(value * self.scale)))
+
+    def point(self, x: float, y: float) -> tuple[int, int]:
+        return self.x(x), self.y(y)
+
+    def rect(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+    ) -> tuple[int, int, int, int]:
+        return self.x(x), self.y(y), self.px(width), self.px(height)
+
+    def font(self, scale: float) -> float:
+        return max(0.30, scale * self.scale)
+
+
+def layout_for(frame) -> Layout:
+    height, width = frame.shape[:2]
+    return Layout(width, height)
 
 
 def blend_rect(
@@ -95,8 +148,17 @@ def chip(
     border = color if active else BORDER_SOFT
     panel(frame, rect, fill=fill, border=border, alpha=0.88, thickness=1, shadow=False)
     x, y, width, height = rect
-    cv2.rectangle(frame, (x, y), (x + 4, y + height), color, -1)
-    put_text(frame, text, (x + 14, y + height // 2 + 7), 0.54, TEXT, 1)
+    density = max(0.72, min(2.2, height / 32.0))
+    accent_width = max(3, int(round(4 * density)))
+    cv2.rectangle(frame, (x, y), (x + accent_width, y + height), color, -1)
+    put_text(
+        frame,
+        text,
+        (x + max(10, int(round(14 * density))), y + height // 2 + int(round(7 * density))),
+        0.54 * density,
+        TEXT,
+        max(1, int(round(density))),
+    )
 
 
 def progress_bar(

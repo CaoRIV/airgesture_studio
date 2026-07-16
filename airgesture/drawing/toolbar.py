@@ -39,7 +39,11 @@ class GestureToolbar:
         self._last_selected_at = 0.0
         self._selected_while_hovered: ToolbarAction | None = None
 
-    def buttons(self, display_width: int) -> list[ToolbarButton]:
+    def buttons(
+        self,
+        display_width: int,
+        display_height: int = 720,
+    ) -> list[ToolbarButton]:
         specs = [
             (ToolbarAction.RED, "Red", (0, 0, 255)),
             (ToolbarAction.GREEN, "Green", (0, 230, 70)),
@@ -55,25 +59,49 @@ class GestureToolbar:
             (ToolbarAction.OPEN_FOLDER, "Folder", (255, 190, 90)),
         ]
 
-        button_width = 96
-        button_height = 50
-        gap = 8
-        total_width = len(specs) * button_width + (len(specs) - 1) * gap
-        start_x = max((display_width - total_width) // 2, 16)
-        y = 94
+        if display_width >= 1500:
+            columns = len(specs)
+        elif display_width >= 900:
+            columns = 6
+        elif display_width >= 640:
+            columns = 4
+        else:
+            columns = 3
+
+        margin = max(10, min(24, display_width // 60))
+        gap = max(5, min(10, display_width // 140))
+        available_width = max(1, display_width - margin * 2)
+        density_scale = max(0.82, min(1.35, display_height / 720.0))
+        button_width = min(
+            int(round(112 * density_scale)),
+            max(72, (available_width - gap * (columns - 1)) // columns),
+        )
+        button_height = int(round(50 * density_scale))
+        row_gap = max(6, int(round(8 * density_scale)))
+        top = max(82, int(round(94 * density_scale)))
 
         buttons = []
         for index, (action, label, color) in enumerate(specs):
-            x = start_x + index * (button_width + gap)
+            row, column = divmod(index, columns)
+            items_in_row = min(columns, len(specs) - row * columns)
+            row_width = items_in_row * button_width + (items_in_row - 1) * gap
+            start_x = max((display_width - row_width) // 2, margin)
+            x = start_x + column * (button_width + gap)
+            y = top + row * (button_height + row_gap)
             buttons.append(ToolbarButton(action, label, (x, y, button_width, button_height), color))
         return buttons
 
-    def hit_test(self, point: tuple[int, int] | None, display_width: int) -> ToolbarAction | None:
+    def hit_test(
+        self,
+        point: tuple[int, int] | None,
+        display_width: int,
+        display_height: int = 720,
+    ) -> ToolbarAction | None:
         if point is None:
             return None
 
         point_x, point_y = point
-        for button in self.buttons(display_width):
+        for button in self.buttons(display_width, display_height):
             x, y, width, height = button.rect
             if x <= point_x <= x + width and y <= point_y <= y + height:
                 return button.action
@@ -105,17 +133,19 @@ def draw_toolbar(
     active_action: ToolbarAction,
     hovered_action: ToolbarAction | None,
 ) -> None:
-    buttons = toolbar.buttons(display_frame.shape[1])
+    buttons = toolbar.buttons(display_frame.shape[1], display_frame.shape[0])
     if not buttons:
         return
 
-    first_x = buttons[0].rect[0]
-    first_y = buttons[0].rect[1]
-    last = buttons[-1].rect
-    bar_width = last[0] + last[2] - first_x
+    first_x = min(button.rect[0] for button in buttons)
+    first_y = min(button.rect[1] for button in buttons)
+    last_x = max(button.rect[0] + button.rect[2] for button in buttons)
+    last_y = max(button.rect[1] + button.rect[3] for button in buttons)
+    bar_width = last_x - first_x
+    bar_height = last_y - first_y
     ui.panel(
         display_frame,
-        (first_x - 12, first_y - 12, bar_width + 24, 74),
+        (first_x - 12, first_y - 12, bar_width + 24, bar_height + 24),
         fill=(12, 16, 24),
         border=ui.BORDER_SOFT,
         alpha=0.76,
@@ -124,6 +154,7 @@ def draw_toolbar(
 
     for button in buttons:
         x, y, width, height = button.rect
+        density = max(0.82, min(1.45, height / 50.0))
         is_active = button.action == active_action
         is_hovered = button.action == hovered_action
         fill = ui.SURFACE_RAISED if is_active else ((34, 42, 54) if is_hovered else ui.SURFACE)
@@ -145,17 +176,23 @@ def draw_toolbar(
         draw_tool_icon(
             display_frame,
             button.action,
-            (x + 15, y + 14, 22, 22),
+            (
+                x + int(round(15 * density)),
+                y + int(round(14 * density)),
+                int(round(22 * density)),
+                int(round(22 * density)),
+            ),
             button.color,
             is_active or is_hovered,
         )
+        label_scale = (0.47 if width >= 88 else 0.40) * density
         ui.put_text(
             display_frame,
             button.label,
-            (x + 42, y + 31),
-            0.47,
+            (x + int(round(42 * density)), y + int(round(31 * density))),
+            label_scale,
             ui.TEXT,
-            1,
+            max(1, int(round(density))),
         )
 
 

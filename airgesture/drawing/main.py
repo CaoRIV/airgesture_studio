@@ -35,6 +35,7 @@ from airgesture.ui.runtime_errors import (
     log_user_error,
     run_with_error_dialog,
 )
+from airgesture.ui.window import ResponsiveWindow
 
 
 WINDOW_NAME = "Hand Gesture Air Drawing - Gesture Toolbar"
@@ -129,10 +130,6 @@ def _run() -> int:
     settings = require_valid_settings()
     air_settings = settings.air_drawing
     drawing_settings = air_settings.drawing
-    display_config = DisplayConfig(
-        width=settings.camera.width,
-        height=settings.camera.height,
-    )
     camera = Camera(settings.camera)
     drawing_canvas = DrawingCanvas(
         CanvasConfig(
@@ -165,9 +162,10 @@ def _run() -> int:
     drawing_canvas.set_brush_color(TOOL_COLORS[current_color_action])
 
     camera.open_or_raise()
+    window = ResponsiveWindow(WINDOW_NAME, start_maximized=True)
 
     try:
-        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        window.create()
         camera.apply_window_title(WINDOW_NAME)
         with HandTracker(air_settings.tracker) as hand_tracker:
             previous_time = time.perf_counter()
@@ -279,7 +277,11 @@ def _run() -> int:
                     instant_fps if smoothed_fps == 0.0 else smoothed_fps * 0.9 + instant_fps * 0.1
                 )
 
-                display_frame, frame_bounds = fit_frame_to_display(frame, display_config)
+                viewport = window.viewport()
+                display_frame, frame_bounds = fit_frame_to_display(
+                    frame,
+                    DisplayConfig(width=viewport.width, height=viewport.height),
+                )
                 cursor_display_point = frame_point_to_display(
                     index_tip,
                     frame.shape,
@@ -288,6 +290,7 @@ def _run() -> int:
                 hovered_action = toolbar.hit_test(
                     cursor_display_point if gesture_state.mode == GestureMode.MOVE and not pinch.active else None,
                     display_frame.shape[1],
+                    display_frame.shape[0],
                 )
                 selected_action = toolbar.select(hovered_action, current_time)
 
@@ -395,8 +398,10 @@ def _run() -> int:
                     hovered_action,
                 )
 
-                cv2.imshow(WINDOW_NAME, display_frame)
-                key_code = cv2.waitKey(1) & 0xFF
+                window.present(display_frame)
+                key_code = cv2.waitKeyEx(1)
+                if window.handle_window_key(key_code):
+                    continue
                 if should_quit(key_code):
                     break
                 if should_clear(key_code):
