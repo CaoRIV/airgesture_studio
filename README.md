@@ -72,6 +72,7 @@ When the terminal is already inside the `airgesture` folder, the direct launcher
 
 Menu controls:
 
+- Mouse: hover and click a mode
 - `1`: Air Drawing
 - `2`: Gesture Puzzle
 - `K`: optional Camera Check
@@ -80,6 +81,7 @@ Menu controls:
 - `R`: rescan connected cameras
 - `Enter`: open selected item
 - `Q` or `Esc`: quit
+- `F11`: toggle fullscreen; `Esc` leaves fullscreen before quitting
 
 Camera Check:
 
@@ -87,6 +89,7 @@ Camera Check:
 - Press `K` from the menu to inspect camera framing, brightness, and hand tracking
 - The window title reports the active camera index, backend, actual resolution, and driver-reported FPS
 - `Enter`, `Space`, `K`, `Q`, or `Esc`: return to the menu
+- `F11`: toggle fullscreen; `Esc` leaves fullscreen before returning
 
 Camera selection applies to Drawing, Puzzle, and Camera Check for the current
 application session. On Windows, camera startup falls back through DirectShow,
@@ -111,6 +114,7 @@ Air drawing controls:
 - `o`: open the saved drawings folder
 - `q`: quit
 - `Esc`: quit
+- `F11`: toggle fullscreen; `Esc` leaves fullscreen before quitting
 
 Toolbar:
 
@@ -144,6 +148,7 @@ Puzzle controls:
 - Release over another tile: swap tiles
 - `r`: restart during play or after victory
 - `q` or `Esc`: quit
+- `F11`: toggle fullscreen; `Esc` leaves fullscreen before quitting
 
 ## Current Scope
 

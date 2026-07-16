@@ -21,6 +21,7 @@ from airgesture.puzzle.hud import (
     draw_victory_hud,
 )
 from airgesture.ui.runtime_errors import run_with_error_dialog
+from airgesture.ui.window import ResponsiveWindow
 
 
 WINDOW_NAME = "Gesture Puzzle Game"
@@ -84,9 +85,10 @@ def _run() -> int:
     started_at = 0.0
     countdown_started_at = 0.0
     victory_elapsed = 0.0
+    window = ResponsiveWindow(WINDOW_NAME, start_maximized=True)
 
     try:
-        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        window.create()
         camera.apply_window_title(WINDOW_NAME)
         with HandTracker(puzzle_settings.tracker) as hand_tracker:
             while True:
@@ -112,8 +114,10 @@ def _run() -> int:
                         capture_result.progress,
                         difficulty,
                     )
-                    cv2.imshow(WINDOW_NAME, frame)
-                    key_code = cv2.waitKey(1) & 0xFF
+                    window.present(frame)
+                    key_code = cv2.waitKeyEx(1)
+                    if window.handle_window_key(key_code):
+                        continue
                     if should_quit(key_code):
                         break
                     next_difficulty = selected_difficulty(key_code)
@@ -139,8 +143,10 @@ def _run() -> int:
                     remaining = game_settings.countdown_seconds - elapsed_countdown
                     countdown_frame = pending_capture_frame.copy()
                     draw_countdown_hud(countdown_frame, remaining, difficulty)
-                    cv2.imshow(WINDOW_NAME, countdown_frame)
-                    key_code = cv2.waitKey(1) & 0xFF
+                    window.present(countdown_frame)
+                    key_code = cv2.waitKeyEx(1)
+                    if window.handle_window_key(key_code):
+                        continue
                     if should_quit(key_code):
                         break
                     if should_restart(key_code):
@@ -191,8 +197,10 @@ def _run() -> int:
                     if board.solved:
                         victory_elapsed = elapsed
                         game_state = GameState.VICTORY
-                    cv2.imshow(WINDOW_NAME, frame)
-                    key_code = cv2.waitKey(1) & 0xFF
+                    window.present(frame)
+                    key_code = cv2.waitKeyEx(1)
+                    if window.handle_window_key(key_code):
+                        continue
                     if should_quit(key_code):
                         break
                     if should_restart(key_code):
@@ -211,8 +219,10 @@ def _run() -> int:
                         top_left = board_top_left(frame.shape, board_size)
                         board.render(frame, top_left)
                     draw_victory_hud(frame, victory_elapsed, moves)
-                    cv2.imshow(WINDOW_NAME, frame)
-                    key_code = cv2.waitKey(1) & 0xFF
+                    window.present(frame)
+                    key_code = cv2.waitKeyEx(1)
+                    if window.handle_window_key(key_code):
+                        continue
                     if should_quit(key_code):
                         break
                     if should_restart(key_code):

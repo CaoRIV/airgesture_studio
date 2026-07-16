@@ -67,10 +67,11 @@ def draw_app_overlay(
     notification_is_error: bool = False,
 ) -> None:
     x, y, width, height = frame_bounds
+    layout = ui.layout_for(display_frame)
 
     _draw_frame_border(display_frame, (x, y, width, height))
-    ui.blend_rect(display_frame, (0, 0), (display_frame.shape[1], 78), (10, 13, 20), 0.82)
-    cv2.line(display_frame, (0, 78), (display_frame.shape[1], 78), ui.BORDER_SOFT, 1, cv2.LINE_AA)
+    ui.blend_rect(display_frame, layout.point(0, 0), layout.point(1280, 78), (10, 13, 20), 0.82)
+    cv2.line(display_frame, layout.point(0, 78), layout.point(1280, 78), ui.BORDER_SOFT, layout.px(1), cv2.LINE_AA)
 
     if mode == "Draw":
         status = "MODE DRAW"
@@ -85,24 +86,24 @@ def draw_app_overlay(
     ui.put_text(
         display_frame,
         "Air Drawing",
-        (28, 46),
-        0.94,
+        layout.point(28, 46),
+        layout.font(0.94),
         ui.TEXT,
-        2,
+        layout.px(2),
     )
     ui.put_text(
         display_frame,
         "Pinch to draw. Release to clean or detect symbols.",
-        (30, 68),
-        0.42,
+        layout.point(30, 68),
+        layout.font(0.42),
         ui.TEXT_MUTED,
-        1,
+        layout.px(1),
     )
     if detected_symbol is not None:
         ui.chip(
             display_frame,
-            (418, 22, 350, 34),
-            f"PHAT HIEN: {detected_symbol}",
+            layout.rect(418, 22, 350, 34),
+            f"DETECTED: {detected_symbol}",
             color=ui.GREEN,
             active=True,
         )
@@ -113,28 +114,28 @@ def draw_app_overlay(
         )
         ui.chip(
             display_frame,
-            (418, 22, 350, 34),
-            f"GOI Y: {suggestion_text}",
+            layout.rect(418, 22, 350, 34),
+            f"SUGGESTIONS: {suggestion_text}",
             color=ui.YELLOW,
             active=True,
         )
     ui.chip(
         display_frame,
-        (display_frame.shape[1] - 484, 22, 142, 34),
+        layout.rect(796, 22, 142, 34),
         status,
         color=status_color,
         active=mode in ("Draw", "Move"),
     )
     ui.chip(
         display_frame,
-        (display_frame.shape[1] - 332, 22, 126, 34),
+        layout.rect(948, 22, 126, 34),
         "HAND OK" if hand_detected else "HAND --",
         color=ui.GREEN if hand_detected else ui.YELLOW,
         active=hand_detected,
     )
     ui.chip(
         display_frame,
-        (display_frame.shape[1] - 196, 22, 150, 34),
+        layout.rect(1084, 22, 150, 34),
         f"FPS {fps:04.1f}",
         color=ui.CYAN,
         active=False,
@@ -143,7 +144,7 @@ def draw_app_overlay(
     if notification_message:
         ui.chip(
             display_frame,
-            (28, display_frame.shape[0] - 108, display_frame.shape[1] - 56, 38),
+            layout.rect(28, 612, 1224, 38),
             notification_message,
             color=ui.RED if notification_is_error else ui.GREEN,
             active=True,
@@ -168,14 +169,14 @@ def _draw_frame_border(display_frame, bounds: tuple[int, int, int, int]) -> None
 
 
 def _draw_bottom_help(display_frame) -> None:
-    height, width = display_frame.shape[:2]
-    ui.blend_rect(display_frame, (0, height - 54), (width, height), (10, 13, 20), 0.78)
-    cv2.line(display_frame, (0, height - 54), (width, height - 54), ui.BORDER_SOFT, 1, cv2.LINE_AA)
+    layout = ui.layout_for(display_frame)
+    ui.blend_rect(display_frame, layout.point(0, 666), layout.point(1280, 720), (10, 13, 20), 0.78)
+    cv2.line(display_frame, layout.point(0, 666), layout.point(1280, 666), ui.BORDER_SOFT, layout.px(1), cv2.LINE_AA)
     ui.put_text(
         display_frame,
-        "Pinch: Draw/Erase    2 fingers: Move/Select    U/Z: Undo    C: Clear    O: Folder    Q/Esc: Exit",
-        (28, height - 22),
-        0.52,
+        "Pinch: Draw/Erase    2 fingers: Move/Select    U/Z: Undo    C: Clear    F11: Fullscreen    Q/Esc: Exit",
+        layout.point(28, 698),
+        layout.font(0.46),
         ui.TEXT_MUTED,
-        1,
+        layout.px(1),
     )

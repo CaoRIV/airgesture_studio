@@ -69,6 +69,42 @@ class MenuNavigationTests(unittest.TestCase):
             self.assertEqual(frame.shape, (720, 1280, 3))
             self.assertGreater(int(np.count_nonzero(frame)), 0)
 
+    def test_menu_renders_at_resized_viewports(self) -> None:
+        for width, height in ((960, 540), (1600, 900), (900, 700)):
+            frame = app.render_menu(0, width=width, height=height)
+
+            self.assertEqual(frame.shape, (height, width, 3))
+            self.assertGreater(int(np.count_nonzero(frame)), 0)
+            for x, y, item_width, item_height in app.menu_item_rects(width, height):
+                self.assertGreaterEqual(x, 0)
+                self.assertGreaterEqual(y, 0)
+                self.assertLessEqual(x + item_width, width)
+                self.assertLessEqual(y + item_height, height)
+
+    def test_mouse_hover_and_click_activate_menu_item(self) -> None:
+        state = app.MenuPointerState()
+        x, y, width, height = app.menu_item_rects(state.width, state.height)[1]
+        center_x = x + width // 2
+        center_y = y + height // 2
+
+        app.handle_menu_mouse(
+            app.cv2.EVENT_MOUSEMOVE,
+            center_x,
+            center_y,
+            0,
+            state,
+        )
+        self.assertEqual(state.hovered_index, 1)
+
+        app.handle_menu_mouse(
+            app.cv2.EVENT_LBUTTONUP,
+            center_x,
+            center_y,
+            0,
+            state,
+        )
+        self.assertEqual(state.activated_action, app.MenuAction.PUZZLE)
+
     def test_camera_selection_cycles_through_discovered_indices(self) -> None:
         self.assertEqual(app.cycle_camera_index([0, 2], 0, 1), 2)
         self.assertEqual(app.cycle_camera_index([0, 2], 2, 1), 0)

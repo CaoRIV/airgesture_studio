@@ -12,6 +12,7 @@ from airgesture.core.hand_tracker import HandTracker
 from airgesture.drawing.display import DisplayConfig, fit_frame_to_display
 from airgesture.ui import theme as ui
 from airgesture.ui.runtime_errors import run_with_error_dialog
+from airgesture.ui.window import ResponsiveWindow
 
 
 WINDOW_NAME = "AirGesture Camera Check"
@@ -45,12 +46,9 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
     camera.open_or_raise()
 
     tracker_config = settings.calibration_tracker(resolved_config.required_hands)
-    display_config = DisplayConfig(
-        width=settings.camera.width,
-        height=settings.camera.height,
-    )
+    window = ResponsiveWindow(WINDOW_NAME)
     try:
-        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+        window.create()
         camera.apply_window_title(WINDOW_NAME)
         with HandTracker(tracker_config) as hand_tracker:
             while True:
@@ -62,7 +60,11 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
                 ready = is_ready(resolved_config, hand_count, brightness)
 
                 hand_tracker.draw_landmarks(frame, results)
-                display_frame, frame_bounds = fit_frame_to_display(frame, display_config)
+                viewport = window.viewport()
+                display_frame, frame_bounds = fit_frame_to_display(
+                    frame,
+                    DisplayConfig(width=viewport.width, height=viewport.height),
+                )
                 draw_camera_check_hud(
                     display_frame,
                     frame_bounds,
@@ -72,9 +74,11 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
                     ready,
                     camera_label=camera.status_label,
                 )
-                cv2.imshow(WINDOW_NAME, display_frame)
+                window.present(display_frame)
 
-                key_code = cv2.waitKey(1) & 0xFF
+                key_code = cv2.waitKeyEx(1)
+                if window.handle_window_key(key_code):
+                    continue
                 if key_code in (
                     27,
                     10,
@@ -113,6 +117,7 @@ def draw_camera_check_hud(
     camera_label: str | None = None,
 ) -> None:
     height, width = frame.shape[:2]
+    layout = ui.layout_for(frame)
     x, y, camera_width, camera_height = frame_bounds
     cv2.rectangle(
         frame,
@@ -123,36 +128,38 @@ def draw_camera_check_hud(
         cv2.LINE_AA,
     )
 
-    ui.blend_rect(frame, (0, 0), (width, 92), (10, 13, 20), 0.86)
-    cv2.line(frame, (0, 92), (width, 92), ui.BORDER_SOFT, 1, cv2.LINE_AA)
-    ui.put_text(frame, "CAMERA CHECK", (28, 38), 0.84, ui.TEXT, 2)
-    ui.put_text(frame, config.title, (30, 68), 0.50, ui.TEXT_MUTED, 1)
+    ui.blend_rect(frame, layout.point(0, 0), layout.point(1280, 92), (10, 13, 20), 0.86)
+    cv2.line(frame, layout.point(0, 92), layout.point(1280, 92), ui.BORDER_SOFT, layout.px(1), cv2.LINE_AA)
+    ui.put_text(frame, "CAMERA CHECK", layout.point(28, 38), layout.font(0.84), ui.TEXT, layout.px(2))
+    ui.put_text(frame, config.title, layout.point(30, 68), layout.font(0.50), ui.TEXT_MUTED, layout.px(1))
     if camera_label:
-        ui.put_text(frame, camera_label, (30, 87), 0.40, ui.TEXT_DIM, 1)
+        ui.put_text(frame, camera_label, layout.point(30, 87), layout.font(0.40), ui.TEXT_DIM, layout.px(1))
 
     status_text = "READY" if ready else "ADJUST CAMERA"
     status_color = ui.GREEN if ready else ui.YELLOW
     status_width = 190 if ready else 230
     ui.chip(
         frame,
-        (width - status_width - 28, 27, status_width, 38),
+        layout.rect(1280 - status_width - 28, 27, status_width, 38),
         status_text,
         color=status_color,
         active=True,
     )
 
-    footer_height = 112
-    footer_top = height - footer_height
-    ui.blend_rect(frame, (0, footer_top), (width, height), (10, 13, 20), 0.88)
-    cv2.line(frame, (0, footer_top), (width, footer_top), ui.BORDER_SOFT, 1, cv2.LINE_AA)
+    footer_top = layout.y(608)
+    footer_bottom = layout.y(720)
+    ui.blend_rect(frame, (layout.x(0), footer_top), (layout.x(1280), footer_bottom), (10, 13, 20), 0.88)
+    cv2.line(frame, (layout.x(0), footer_top), (layout.x(1280), footer_top), ui.BORDER_SOFT, layout.px(1), cv2.LINE_AA)
 
-    margin = max(16, int(width * 0.022))
-    gap = max(8, int(width * 0.010))
-    metrics_width = width - margin * 2 - gap * 2
+    margin = layout.px(28)
+    gap = layout.px(12)
+    content_left = layout.x(0)
+    content_width = layout.px(1280)
+    metrics_width = content_width - margin * 2 - gap * 2
     hands_width = int(metrics_width * 0.25)
     brightness_width = int(metrics_width * 0.33)
     frame_width = metrics_width - hands_width - brightness_width
-    hands_x = margin
+    hands_x = content_left + margin
     brightness_x = hands_x + hands_width + gap
     frame_x = brightness_x + brightness_width + gap
 
@@ -160,32 +167,32 @@ def draw_camera_check_hud(
     brightness_ok = config.min_brightness <= brightness <= config.max_brightness
     ui.chip(
         frame,
-        (hands_x, footer_top + 18, hands_width, 36),
+        (hands_x, footer_top + layout.px(18), hands_width, layout.px(36)),
         f"HANDS  {hand_count}/{config.required_hands}",
         color=ui.GREEN if hands_ok else ui.YELLOW,
         active=hands_ok,
     )
     ui.chip(
         frame,
-        (brightness_x, footer_top + 18, brightness_width, 36),
+        (brightness_x, footer_top + layout.px(18), brightness_width, layout.px(36)),
         f"BRIGHTNESS  {brightness:05.1f}",
         color=ui.GREEN if brightness_ok else ui.YELLOW,
         active=brightness_ok,
     )
     ui.chip(
         frame,
-        (frame_x, footer_top + 18, frame_width, 36),
+        (frame_x, footer_top + layout.px(18), frame_width, layout.px(36)),
         f"FRAME  {camera_width}x{camera_height}",
         color=ui.CYAN,
         active=False,
     )
     ui.put_text(
         frame,
-        "Enter / Space / K / Q / Esc: Back to menu",
-        (margin + 2, height - 22),
-        0.56,
+        "Enter / Space / K: Back    F11: Fullscreen    Q/Esc: Back",
+        layout.point(30, 698),
+        layout.font(0.50),
         ui.TEXT_MUTED,
-        1,
+        layout.px(1),
     )
 
 
