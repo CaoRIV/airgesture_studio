@@ -17,6 +17,18 @@ from airgesture.ui.window import ResponsiveWindow
 
 WINDOW_NAME = "AirGesture Camera Check"
 
+CAMERA_CHECK_PAPER = (250, 250, 247)
+CAMERA_CHECK_INK = (8, 9, 10)
+CAMERA_CHECK_BODY = (46, 48, 52)
+CAMERA_CHECK_GRID = (224, 226, 222)
+CAMERA_CHECK_CYAN = (220, 222, 24)
+CAMERA_CHECK_LIME = (36, 238, 164)
+CAMERA_CHECK_YELLOW = (0, 225, 255)
+CAMERA_CHECK_PINK = (168, 70, 242)
+CAMERA_CHECK_GREEN = (57, 201, 49)
+CAMERA_CHECK_FONT = cv2.FONT_HERSHEY_DUPLEX
+CAMERA_CHECK_BODY_FONT = cv2.FONT_HERSHEY_SIMPLEX
+
 
 @dataclass(frozen=True)
 class CameraCheckConfig:
@@ -120,84 +132,350 @@ def draw_camera_check_hud(
     ready: bool,
     camera_label: str | None = None,
 ) -> None:
-    height, width = frame.shape[:2]
+    camera_frame = _extract_camera_frame(frame, frame_bounds)
     layout = ui.layout_for(frame)
-    x, y, camera_width, camera_height = frame_bounds
-    cv2.rectangle(
+    frame[:] = CAMERA_CHECK_PAPER
+    _draw_camera_check_grid(frame, layout)
+
+    cv2.rectangle(frame, layout.point(0, 0), layout.point(1280, 112), CAMERA_CHECK_PAPER, -1)
+    cv2.line(
         frame,
-        (x, y),
-        (x + camera_width - 1, y + camera_height - 1),
-        ui.GREEN if ready else ui.BORDER_SOFT,
-        2,
+        layout.point(0, 112),
+        layout.point(1280, 112),
+        CAMERA_CHECK_INK,
+        layout.px(2),
         cv2.LINE_AA,
     )
-
-    ui.blend_rect(frame, layout.point(0, 0), layout.point(1280, 92), (10, 13, 20), 0.86)
-    cv2.line(frame, layout.point(0, 92), layout.point(1280, 92), ui.BORDER_SOFT, layout.px(1), cv2.LINE_AA)
-    ui.put_text(frame, "CAMERA CHECK", layout.point(28, 38), layout.font(0.84), ui.TEXT, layout.px(2))
-    ui.put_text(frame, config.title, layout.point(30, 68), layout.font(0.50), ui.TEXT_MUTED, layout.px(1))
-    if camera_label:
-        ui.put_text(frame, camera_label, layout.point(30, 87), layout.font(0.40), ui.TEXT_DIM, layout.px(1))
-
-    status_text = "READY" if ready else "ADJUST CAMERA"
-    status_color = ui.GREEN if ready else ui.YELLOW
-    status_width = 190 if ready else 230
-    ui.chip(
+    _camera_check_text(
         frame,
-        layout.rect(1280 - status_width - 28, 27, status_width, 38),
-        status_text,
-        color=status_color,
-        active=True,
+        "CAMERA CHECK",
+        layout.point(42, 58),
+        layout.font(1.16),
+        CAMERA_CHECK_INK,
+        layout.px(4),
     )
+    _camera_check_text(
+        frame,
+        config.title,
+        layout.point(44, 83),
+        layout.font(0.43),
+        CAMERA_CHECK_BODY,
+        layout.px(1),
+        font=CAMERA_CHECK_BODY_FONT,
+    )
+    if camera_label:
+        _camera_check_text(
+            frame,
+            camera_label,
+            layout.point(44, 102),
+            layout.font(0.28),
+            CAMERA_CHECK_BODY,
+            layout.px(1),
+            font=CAMERA_CHECK_BODY_FONT,
+        )
 
-    footer_top = layout.y(608)
-    footer_bottom = layout.y(720)
-    ui.blend_rect(frame, (layout.x(0), footer_top), (layout.x(1280), footer_bottom), (10, 13, 20), 0.88)
-    cv2.line(frame, (layout.x(0), footer_top), (layout.x(1280), footer_top), ui.BORDER_SOFT, layout.px(1), cv2.LINE_AA)
+    _draw_camera_check_status(frame, layout, ready)
 
-    margin = layout.px(28)
-    gap = layout.px(12)
-    content_left = layout.x(0)
-    content_width = layout.px(1280)
-    metrics_width = content_width - margin * 2 - gap * 2
-    hands_width = int(metrics_width * 0.25)
-    brightness_width = int(metrics_width * 0.33)
-    frame_width = metrics_width - hands_width - brightness_width
-    hands_x = content_left + margin
-    brightness_x = hands_x + hands_width + gap
-    frame_x = brightness_x + brightness_width + gap
+    camera_rect = layout.rect(44, 124, 1192, 390)
+    _draw_wide_camera_preview(frame, camera_frame, camera_rect, layout, ready)
 
     hands_ok = hand_count >= config.required_hands
     brightness_ok = config.min_brightness <= brightness <= config.max_brightness
-    ui.chip(
+    _draw_camera_metric(
         frame,
-        (hands_x, footer_top + layout.px(18), hands_width, layout.px(36)),
-        f"HANDS  {hand_count}/{config.required_hands}",
-        color=ui.GREEN if hands_ok else ui.YELLOW,
-        active=hands_ok,
+        layout,
+        layout.rect(44, 532, 350, 82),
+        "HANDS",
+        f"{hand_count} / {config.required_hands}",
+        CAMERA_CHECK_GREEN if hands_ok else CAMERA_CHECK_PINK,
+        "hand",
     )
-    ui.chip(
+    _draw_camera_metric(
         frame,
-        (brightness_x, footer_top + layout.px(18), brightness_width, layout.px(36)),
-        f"BRIGHTNESS  {brightness:05.1f}",
-        color=ui.GREEN if brightness_ok else ui.YELLOW,
-        active=brightness_ok,
+        layout,
+        layout.rect(414, 532, 402, 82),
+        "BRIGHTNESS",
+        f"{brightness:05.1f}",
+        CAMERA_CHECK_LIME if brightness_ok else CAMERA_CHECK_YELLOW,
+        "sun",
     )
-    ui.chip(
+    _draw_camera_metric(
         frame,
-        (frame_x, footer_top + layout.px(18), frame_width, layout.px(36)),
-        f"FRAME  {camera_width}x{camera_height}",
-        color=ui.CYAN,
-        active=False,
+        layout,
+        layout.rect(836, 532, 400, 82),
+        "FRAME",
+        f"{camera_frame.shape[1]} x {camera_frame.shape[0]}",
+        CAMERA_CHECK_CYAN,
+        "frame",
     )
-    ui.put_text(
+    _draw_camera_check_footer(frame, layout)
+
+
+def _extract_camera_frame(frame, frame_bounds: tuple[int, int, int, int]):
+    x, y, width, height = frame_bounds
+    frame_height, frame_width = frame.shape[:2]
+    left = max(0, min(frame_width, x))
+    top = max(0, min(frame_height, y))
+    right = max(left, min(frame_width, x + width))
+    bottom = max(top, min(frame_height, y + height))
+    if right <= left or bottom <= top:
+        return frame.copy()
+    return frame[top:bottom, left:right].copy()
+
+
+def _draw_camera_check_grid(frame, layout: ui.Layout) -> None:
+    for design_x in range(24, 1280, 48):
+        x = layout.x(design_x)
+        cv2.line(frame, (x, 0), (x, frame.shape[0]), CAMERA_CHECK_GRID, layout.px(1), cv2.LINE_AA)
+    for design_y in range(16, 720, 48):
+        y = layout.y(design_y)
+        cv2.line(frame, (0, y), (frame.shape[1], y), CAMERA_CHECK_GRID, layout.px(1), cv2.LINE_AA)
+
+
+def _draw_camera_check_status(frame, layout: ui.Layout, ready: bool) -> None:
+    rect = layout.rect(916, 28, 320, 64)
+    fill = CAMERA_CHECK_GREEN if ready else CAMERA_CHECK_YELLOW
+    _camera_check_panel(frame, rect, layout, fill)
+    x, y, _, height = rect
+    _draw_camera_icon(
         frame,
-        "Enter / Space / K: Back    F11: Fullscreen    Q/Esc: Back",
-        layout.point(30, 698),
-        layout.font(0.50),
-        ui.TEXT_MUTED,
+        (x + layout.px(22), y + (height - layout.px(34)) // 2, layout.px(42), layout.px(34)),
+        CAMERA_CHECK_INK,
+        layout,
+    )
+    _camera_check_text(
+        frame,
+        "READY" if ready else "ADJUST CAMERA",
+        (x + layout.px(80), y + layout.px(42)),
+        layout.font(0.62 if ready else 0.55),
+        CAMERA_CHECK_INK,
+        layout.px(2),
+    )
+
+
+def _draw_wide_camera_preview(
+    frame,
+    camera_frame,
+    rect: tuple[int, int, int, int],
+    layout: ui.Layout,
+    ready: bool,
+) -> None:
+    x, y, width, height = rect
+    offset = layout.px(7)
+    cv2.rectangle(
+        frame,
+        (x + offset, y + offset),
+        (x + width + offset, y + height + offset),
+        CAMERA_CHECK_INK,
+        -1,
+    )
+    source_height, source_width = camera_frame.shape[:2]
+    target_aspect = width / max(height, 1)
+    source_aspect = source_width / max(source_height, 1)
+    crop_x = 0
+    crop_y = 0
+    crop_width = source_width
+    crop_height = source_height
+    if source_aspect < target_aspect:
+        crop_height = max(1, int(round(source_width / target_aspect)))
+        crop_y = max(0, (source_height - crop_height) // 2)
+    elif source_aspect > target_aspect:
+        crop_width = max(1, int(round(source_height * target_aspect)))
+        crop_x = max(0, (source_width - crop_width) // 2)
+    visible = camera_frame[crop_y : crop_y + crop_height, crop_x : crop_x + crop_width]
+    frame[y : y + height, x : x + width] = cv2.resize(visible, (width, height), interpolation=cv2.INTER_AREA)
+    border = CAMERA_CHECK_GREEN if ready else CAMERA_CHECK_INK
+    cv2.rectangle(frame, (x, y), (x + width, y + height), border, layout.px(3), cv2.LINE_AA)
+    _draw_camera_corners(frame, rect, layout)
+
+
+def _draw_camera_corners(frame, rect: tuple[int, int, int, int], layout: ui.Layout) -> None:
+    x, y, width, height = rect
+    inset = layout.px(18)
+    length = layout.px(28)
+    left = x + inset
+    right = x + width - inset
+    top = y + inset
+    bottom = y + height - inset
+    for start, end in (
+        ((left, top), (left + length, top)),
+        ((left, top), (left, top + length)),
+        ((right - length, top), (right, top)),
+        ((right, top), (right, top + length)),
+        ((left, bottom), (left + length, bottom)),
+        ((left, bottom - length), (left, bottom)),
+        ((right - length, bottom), (right, bottom)),
+        ((right, bottom - length), (right, bottom)),
+    ):
+        cv2.line(frame, start, end, CAMERA_CHECK_CYAN, layout.px(3), cv2.LINE_AA)
+
+
+def _draw_camera_metric(
+    frame,
+    layout: ui.Layout,
+    rect: tuple[int, int, int, int],
+    label: str,
+    value: str,
+    accent: tuple[int, int, int],
+    icon: str,
+) -> None:
+    _camera_check_panel(frame, rect, layout, CAMERA_CHECK_PAPER)
+    x, y, _, height = rect
+    icon_width = layout.px(78)
+    cv2.rectangle(frame, (x, y), (x + icon_width, y + height), accent, -1)
+    cv2.line(frame, (x + icon_width, y), (x + icon_width, y + height), CAMERA_CHECK_INK, layout.px(2), cv2.LINE_AA)
+    _draw_metric_icon(frame, layout, icon, (x, y, icon_width, height))
+    _camera_check_text(
+        frame,
+        label,
+        (x + layout.px(96), y + layout.px(30)),
+        layout.font(0.31),
+        CAMERA_CHECK_BODY,
         layout.px(1),
+        font=CAMERA_CHECK_BODY_FONT,
     )
+    _camera_check_text(
+        frame,
+        value,
+        (x + layout.px(96), y + layout.px(59)),
+        layout.font(0.58),
+        CAMERA_CHECK_INK,
+        layout.px(1),
+        font=CAMERA_CHECK_BODY_FONT,
+    )
+    ruler_y = y + layout.px(70)
+    for tick in range(12):
+        tick_x = x + layout.px(96 + tick * 18)
+        cv2.line(
+            frame,
+            (tick_x, ruler_y),
+            (tick_x, ruler_y + layout.px(4)),
+            CAMERA_CHECK_BODY,
+            layout.px(1),
+            cv2.LINE_AA,
+        )
+
+
+def _draw_metric_icon(frame, layout: ui.Layout, icon: str, rect: tuple[int, int, int, int]) -> None:
+    x, y, width, height = rect
+    center = (x + width // 2, y + height // 2)
+    if icon == "sun":
+        radius = layout.px(13)
+        cv2.circle(frame, center, radius, CAMERA_CHECK_INK, layout.px(2), cv2.LINE_AA)
+        for dx, dy in ((0, -25), (0, 25), (-25, 0), (25, 0), (-18, -18), (18, -18), (-18, 18), (18, 18)):
+            start = (
+                center[0] + int(round(dx * 0.72 * layout.scale)),
+                center[1] + int(round(dy * 0.72 * layout.scale)),
+            )
+            end = (
+                center[0] + int(round(dx * layout.scale)),
+                center[1] + int(round(dy * layout.scale)),
+            )
+            cv2.line(frame, start, end, CAMERA_CHECK_INK, layout.px(2), cv2.LINE_AA)
+    elif icon == "frame":
+        size = layout.px(14)
+        for column, row in ((0, 0), (1, 1), (0, 2)):
+            left = center[0] - size + column * size
+            top = center[1] - size * 3 // 2 + row * size
+            cv2.rectangle(frame, (left, top), (left + size, top + size), CAMERA_CHECK_INK, -1)
+    else:
+        palm_center = (center[0], center[1] + layout.px(8))
+        cv2.ellipse(frame, palm_center, (layout.px(14), layout.px(18)), 0, 0, 180, CAMERA_CHECK_INK, layout.px(3), cv2.LINE_AA)
+        for index in range(4):
+            finger_x = center[0] - layout.px(11) + index * layout.px(7)
+            cv2.line(
+                frame,
+                (finger_x, center[1] + layout.px(5)),
+                (finger_x, center[1] - layout.px(16 + (index % 2) * 5)),
+                CAMERA_CHECK_INK,
+                layout.px(3),
+                cv2.LINE_AA,
+            )
+
+
+def _draw_camera_check_footer(frame, layout: ui.Layout) -> None:
+    rect = layout.rect(44, 634, 1192, 68)
+    _camera_check_panel(frame, rect, layout, CAMERA_CHECK_PAPER)
+    segments = [
+        (70, "ENTER / SPACE", "BACK"),
+        (390, "K", "BACK"),
+        (560, "F11", "FULLSCREEN"),
+        (840, "Q / ESC", "BACK"),
+    ]
+    for index, (x, primary, secondary) in enumerate(segments):
+        if index:
+            cv2.line(
+                frame,
+                layout.point(x - 28, 650),
+                layout.point(x - 28, 686),
+                CAMERA_CHECK_CYAN,
+                layout.px(2),
+                cv2.LINE_AA,
+            )
+        _camera_check_text(
+            frame,
+            primary,
+            layout.point(x, 674),
+            layout.font(0.43),
+            CAMERA_CHECK_INK,
+            layout.px(1),
+            font=CAMERA_CHECK_BODY_FONT,
+        )
+        primary_width = cv2.getTextSize(primary, CAMERA_CHECK_BODY_FONT, layout.font(0.43), layout.px(1))[0][0]
+        _camera_check_text(
+            frame,
+            secondary,
+            (layout.x(x) + primary_width + layout.px(18), layout.y(674)),
+            layout.font(0.30),
+            CAMERA_CHECK_BODY,
+            layout.px(1),
+            font=CAMERA_CHECK_BODY_FONT,
+        )
+
+
+def _draw_camera_icon(
+    frame,
+    rect: tuple[int, int, int, int],
+    color: tuple[int, int, int],
+    layout: ui.Layout,
+) -> None:
+    x, y, width, height = rect
+    body_top = y + layout.px(6)
+    cv2.rectangle(frame, (x, body_top), (x + width, y + height), color, layout.px(2), cv2.LINE_AA)
+    cv2.rectangle(
+        frame,
+        (x + layout.px(10), y),
+        (x + layout.px(26), body_top + layout.px(2)),
+        color,
+        -1,
+    )
+    cv2.circle(frame, (x + width // 2, body_top + (height - layout.px(6)) // 2), layout.px(8), color, layout.px(2), cv2.LINE_AA)
+
+
+def _camera_check_panel(
+    frame,
+    rect: tuple[int, int, int, int],
+    layout: ui.Layout,
+    fill: tuple[int, int, int],
+) -> None:
+    x, y, width, height = rect
+    offset = layout.px(6)
+    cv2.rectangle(frame, (x + offset, y + offset), (x + width + offset, y + height + offset), CAMERA_CHECK_INK, -1)
+    cv2.rectangle(frame, (x, y), (x + width, y + height), fill, -1)
+    cv2.rectangle(frame, (x, y), (x + width, y + height), CAMERA_CHECK_INK, layout.px(3), cv2.LINE_AA)
+
+
+def _camera_check_text(
+    frame,
+    text: str,
+    origin: tuple[int, int],
+    scale: float,
+    color: tuple[int, int, int],
+    thickness: int,
+    *,
+    font: int = CAMERA_CHECK_FONT,
+) -> None:
+    cv2.putText(frame, text, origin, font, scale, color, thickness, cv2.LINE_AA)
 
 
 # Backward-compatible names for integrations using the previous API.

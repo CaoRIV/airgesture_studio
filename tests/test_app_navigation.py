@@ -7,6 +7,7 @@ import numpy as np
 
 from airgesture import app
 from airgesture.calibration import (
+    CAMERA_CHECK_PAPER,
     CameraCheckConfig,
     draw_camera_check_hud,
 )
@@ -129,7 +130,8 @@ class MenuNavigationTests(unittest.TestCase):
 
 class CameraCheckLayoutTests(unittest.TestCase):
     def test_hud_renders_without_clipping_coordinates_at_hd(self) -> None:
-        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        camera_color = (24, 28, 34)
+        frame = np.full((720, 1280, 3), camera_color, dtype=np.uint8)
         draw_camera_check_hud(
             frame,
             (160, 0, 960, 720),
@@ -140,6 +142,14 @@ class CameraCheckLayoutTests(unittest.TestCase):
         )
 
         self.assertGreater(int(np.count_nonzero(frame)), 0)
+        self.assertTupleEqual(
+            tuple(int(value) for value in frame[5, 640]),
+            CAMERA_CHECK_PAPER,
+        )
+        self.assertTupleEqual(
+            tuple(int(value) for value in frame[300, 640]),
+            camera_color,
+        )
 
     def test_hud_scales_metrics_for_smaller_display(self) -> None:
         frame = np.zeros((480, 640, 3), dtype=np.uint8)

@@ -91,8 +91,18 @@ def _run() -> int:
         window.create()
         camera.apply_window_title(WINDOW_NAME)
         with HandTracker(puzzle_settings.tracker) as hand_tracker:
+            previous_frame_at = time.perf_counter()
+            smoothed_fps = 0.0
             while True:
                 frame = camera.read_or_raise()
+                current_frame_at = time.perf_counter()
+                instant_fps = 1.0 / max(current_frame_at - previous_frame_at, 0.0001)
+                previous_frame_at = current_frame_at
+                smoothed_fps = (
+                    instant_fps
+                    if smoothed_fps == 0.0
+                    else smoothed_fps * 0.9 + instant_fps * 0.1
+                )
 
                 capture_frame = frame.copy()
                 results = hand_tracker.detect(frame)
@@ -113,6 +123,7 @@ def _run() -> int:
                         capture_result.message,
                         capture_result.progress,
                         difficulty,
+                        smoothed_fps,
                     )
                     window.present(frame)
                     key_code = cv2.waitKeyEx(1)
