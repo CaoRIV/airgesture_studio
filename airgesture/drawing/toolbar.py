@@ -5,6 +5,7 @@ from enum import Enum
 
 import cv2
 
+from airgesture.drawing import style
 from airgesture.ui import theme as ui
 
 
@@ -59,11 +60,25 @@ class GestureToolbar:
             (ToolbarAction.OPEN_FOLDER, "Folder", (255, 190, 90)),
         ]
 
-        if display_width >= 1500:
-            columns = len(specs)
-        elif display_width >= 900:
-            columns = 6
-        elif display_width >= 640:
+        if display_width >= 900:
+            layout = ui.Layout(display_width, display_height)
+            widths = (88, 92, 92, 96, 94, 100, 86, 90, 92, 88, 88, 92)
+            gap = 10
+            total_width = sum(widths) + gap * (len(widths) - 1)
+            x = (1280 - total_width) // 2
+            buttons = []
+            for (action, label, color), width in zip(specs, widths):
+                buttons.append(
+                    ToolbarButton(
+                        action,
+                        label,
+                        layout.rect(x, 23, width, 47),
+                        color,
+                    )
+                )
+                x += width + gap
+            return buttons
+        if display_width >= 640:
             columns = 4
         else:
             columns = 3
@@ -78,7 +93,7 @@ class GestureToolbar:
         )
         button_height = int(round(50 * density_scale))
         row_gap = max(6, int(round(8 * density_scale)))
-        top = max(82, int(round(94 * density_scale)))
+        top = max(78, int(round(104 * density_scale)))
 
         buttons = []
         for index, (action, label, color) in enumerate(specs):
@@ -143,35 +158,43 @@ def draw_toolbar(
     last_y = max(button.rect[1] + button.rect[3] for button in buttons)
     bar_width = last_x - first_x
     bar_height = last_y - first_y
-    ui.panel(
-        display_frame,
-        (first_x - 12, first_y - 12, bar_width + 24, bar_height + 24),
-        fill=(12, 16, 24),
-        border=ui.BORDER_SOFT,
-        alpha=0.76,
-        shadow=True,
-    )
+    layout = ui.layout_for(display_frame)
+    if display_frame.shape[1] >= 900:
+        panel_rect = layout.rect(6, 11, 1268, 70)
+    else:
+        panel_rect = (first_x - 10, first_y - 10, bar_width + 20, bar_height + 20)
+    style.panel(display_frame, panel_rect, layout, radius=5)
+
+    if display_frame.shape[1] >= 900:
+        by_action = {button.action: button for button in buttons}
+        for action in (ToolbarAction.ERASER, ToolbarAction.THICK):
+            button = by_action[action]
+            separator_x = button.rect[0] + button.rect[2] + layout.px(4)
+            style.dashed_line(
+                display_frame,
+                (separator_x, panel_rect[1] + layout.px(10)),
+                (separator_x, panel_rect[1] + panel_rect[3] - layout.px(10)),
+                style.INK,
+                layout.px(2),
+                layout.px(5),
+                layout.px(4),
+            )
 
     for button in buttons:
         x, y, width, height = button.rect
-        density = max(0.82, min(1.45, height / 50.0))
+        density = max(0.72, min(1.45, height / 47.0))
         is_active = button.action == active_action
         is_hovered = button.action == hovered_action
-        fill = ui.SURFACE_RAISED if is_active else ((34, 42, 54) if is_hovered else ui.SURFACE)
-        border = button.color if is_active or is_hovered else (88, 96, 110)
-        border_thickness = 3 if is_active or is_hovered else 1
-
-        ui.panel(
+        fill = button.color if is_active else style.PAPER_ALT
+        style.panel(
             display_frame,
             (x, y, width, height),
+            layout,
             fill=fill,
-            border=border,
-            alpha=0.94,
-            thickness=border_thickness,
-            shadow=False,
+            radius=3,
+            shadow=True,
+            thickness=3 if is_active or is_hovered else 2,
         )
-        if is_active:
-            ui.accent_bar(display_frame, (x, y, width, 4), button.color)
 
         draw_tool_icon(
             display_frame,
@@ -185,13 +208,13 @@ def draw_toolbar(
             button.color,
             is_active or is_hovered,
         )
-        label_scale = (0.47 if width >= 88 else 0.40) * density
-        ui.put_text(
+        label_scale = (0.38 if width >= layout.px(84) else 0.34) * density
+        style.put_text(
             display_frame,
             button.label,
-            (x + int(round(42 * density)), y + int(round(31 * density))),
+            (x + int(round(37 * density)), y + int(round(30 * density))),
             label_scale,
-            ui.TEXT,
+            style.INK,
             max(1, int(round(density))),
         )
 
@@ -205,7 +228,7 @@ def draw_tool_icon(
 ) -> None:
     x, y, width, height = rect
     center = (x + width // 2, y + height // 2)
-    line_color = color if active else ui.TEXT_MUTED
+    line_color = style.INK
 
     if action in {
         ToolbarAction.RED,
@@ -215,10 +238,10 @@ def draw_tool_icon(
         ToolbarAction.WHITE,
     }:
         cv2.circle(frame, center, 9, color, -1, cv2.LINE_AA)
-        cv2.circle(frame, center, 11, ui.WHITE, 1, cv2.LINE_AA)
+        cv2.circle(frame, center, 10, style.INK, 2, cv2.LINE_AA)
     elif action == ToolbarAction.ERASER:
         cv2.rectangle(frame, (x + 4, y + 7), (x + width - 3, y + height - 5), line_color, 2)
-        cv2.line(frame, (x + 5, y + height - 4), (x + width, y + height - 4), ui.TEXT_DIM, 1)
+        cv2.line(frame, (x + 5, y + height - 4), (x + width, y + height - 4), style.INK, 1)
     elif action == ToolbarAction.THIN:
         cv2.line(frame, (x + 3, center[1]), (x + width - 3, center[1]), line_color, 2, cv2.LINE_AA)
     elif action == ToolbarAction.THICK:

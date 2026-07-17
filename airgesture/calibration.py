@@ -63,7 +63,11 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
                 viewport = window.viewport()
                 display_frame, frame_bounds = fit_frame_to_display(
                     frame,
-                    DisplayConfig(width=viewport.width, height=viewport.height),
+                    DisplayConfig(
+                        width=viewport.width,
+                        height=viewport.height,
+                        workspace=False,
+                    ),
                 )
                 draw_camera_check_hud(
                     display_frame,
