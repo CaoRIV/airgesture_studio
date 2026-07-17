@@ -5,6 +5,20 @@ This project has two gesture-controlled experiences:
 - Air drawing: draw with your hand, use a gesture toolbar, clean strokes, and snap simple strokes into clean letters or digits.
 - Gesture puzzle: capture a webcam image and solve a 3x3 tile puzzle with pinch gestures.
 
+## Demo
+
+### AirGesture Studio
+
+![AirGesture Studio main menu](demo/airgesture-studio.png)
+
+| Air Drawing | Camera Check |
+| --- | --- |
+| ![Air Drawing with gesture controls](demo/air-drawing.png) | ![Camera Check diagnostics](demo/camera-check.png) |
+
+| Gesture Puzzle Capture | Gesture Puzzle Play |
+| --- | --- |
+| ![Gesture Puzzle capture screen](demo/gesture-puzzle-start.png) | ![Gesture Puzzle play screen](demo/gesture-puzzle-play.png) |
+
 ## Requirements
 
 - Python 3.14 (64-bit)
