@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import unittest
 
+import numpy as np
+
 from airgesture.puzzle.gesture import PinchGesture, PinchGestureConfig
+from airgesture.puzzle.hud import PUZZLE_PAPER, PUZZLE_YELLOW, draw_capture_hud, draw_play_hud
 
 
 class PinchGestureTests(unittest.TestCase):
@@ -45,6 +48,52 @@ class PinchGestureTests(unittest.TestCase):
 
         self.assertFalse(released.active)
         self.assertTrue(released.released)
+
+
+class PuzzleCaptureHudTests(unittest.TestCase):
+    def test_capture_hud_uses_pop_art_layout_without_fake_title_bar(self) -> None:
+        frame = np.full((720, 1280, 3), (24, 28, 34), dtype=np.uint8)
+
+        draw_capture_hud(
+            frame,
+            hand_count=0,
+            capture_message="Show both hands in the camera",
+            capture_progress=0.0,
+            difficulty=3,
+            fps=30.0,
+        )
+
+        self.assertEqual(frame.shape, (720, 1280, 3))
+        self.assertTupleEqual(
+            tuple(int(value) for value in frame[5, 640]),
+            PUZZLE_PAPER,
+        )
+        self.assertTupleEqual(
+            tuple(int(value) for value in frame[150, 150]),
+            PUZZLE_YELLOW,
+        )
+        self.assertGreater(int(np.count_nonzero(frame)), 0)
+
+    def test_play_hud_uses_matching_light_top_and_bottom_bars(self) -> None:
+        frame = np.full((720, 1280, 3), (24, 28, 34), dtype=np.uint8)
+
+        draw_play_hud(
+            frame,
+            elapsed_seconds=6.9,
+            moves=0,
+            pinch_active=False,
+            selected_tile=None,
+            difficulty=3,
+        )
+
+        self.assertTupleEqual(
+            tuple(int(value) for value in frame[5, 640]),
+            PUZZLE_PAPER,
+        )
+        self.assertTupleEqual(
+            tuple(int(value) for value in frame[715, 640]),
+            PUZZLE_PAPER,
+        )
 
 
 if __name__ == "__main__":
