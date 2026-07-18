@@ -169,11 +169,14 @@ Puzzle controls:
 Implemented:
 
 - Webcam capture with mirrored preview
+- Visible camera-scanning state instead of a blank startup delay
 - Runtime camera discovery and A/D camera selection from the main menu
 - Windows camera backend fallback: DirectShow, Media Foundation, then default
 - Actual camera backend, resolution, and driver-reported FPS in window titles
 - Bounded frame retry and automatic camera reconnection
 - MediaPipe hand landmark detection
+- Lazy MediaPipe loading only when a tracking mode starts, after consent
+- SHA-256 integrity verification for the bundled hand-tracking model
 - MediaPipe video-mode tracking with monotonic frame timestamps
 - Adaptive One Euro filtering across all 21 hand landmarks
 - Separate tracking profiles for drawing, puzzle, and optional Camera Check
@@ -182,6 +185,8 @@ Implemented:
   `airgesture/resources/models/hand_landmarker.task`
 - Home menu launcher for selecting drawing or puzzle mode
 - Optional responsive Camera Check screen with hand-count and brightness diagnostics
+- Actionable Camera Check guidance for missing hands and low/high lighting
+- Camera Check reports the camera's source resolution instead of viewport size
 - Gesture-controlled 3x3 webcam puzzle game
 - 3x3 and 4x4 puzzle difficulty selection
 - Countdown before puzzle start
@@ -203,6 +208,7 @@ Implemented:
 - 16:9 preview frame that preserves camera aspect ratio
 - Basic status overlay with hand detection state and FPS
 - Safe camera/window cleanup
+- Graceful exit when a native OpenCV window is closed with the title-bar button
 
 Not implemented yet:
 

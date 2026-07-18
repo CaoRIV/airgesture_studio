@@ -64,7 +64,10 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
         camera.apply_window_title(WINDOW_NAME)
         with HandTracker(tracker_config) as hand_tracker:
             while True:
+                if not window.is_open():
+                    return 0
                 frame = camera.read_or_raise()
+                camera_resolution = (frame.shape[1], frame.shape[0])
 
                 results = hand_tracker.detect(frame)
                 hand_count = len(results.hand_landmarks) if results.hand_landmarks else 0
@@ -89,6 +92,7 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
                     brightness,
                     ready,
                     camera_label=camera.status_label,
+                    camera_resolution=camera_resolution,
                 )
                 window.present(display_frame)
 
@@ -108,7 +112,7 @@ def _run_camera_check(config: CameraCheckConfig | None = None) -> int:
                     return 0
     finally:
         camera.release()
-        cv2.destroyWindow(WINDOW_NAME)
+        window.close()
 
 
 def average_brightness(frame) -> float:
@@ -123,6 +127,21 @@ def is_ready(config: CameraCheckConfig, hand_count: int, brightness: float) -> b
     )
 
 
+def camera_check_status(
+    config: CameraCheckConfig,
+    hand_count: int,
+    brightness: float,
+) -> tuple[str, tuple[int, int, int]]:
+    if hand_count < config.required_hands:
+        label = "SHOW A HAND" if config.required_hands == 1 else "SHOW BOTH HANDS"
+        return label, CAMERA_CHECK_PINK
+    if brightness < config.min_brightness:
+        return "ADD MORE LIGHT", CAMERA_CHECK_YELLOW
+    if brightness > config.max_brightness:
+        return "REDUCE LIGHT", CAMERA_CHECK_YELLOW
+    return "READY", CAMERA_CHECK_GREEN
+
+
 def draw_camera_check_hud(
     frame,
     frame_bounds: tuple[int, int, int, int],
@@ -131,6 +150,7 @@ def draw_camera_check_hud(
     brightness: float,
     ready: bool,
     camera_label: str | None = None,
+    camera_resolution: tuple[int, int] | None = None,
 ) -> None:
     camera_frame = _extract_camera_frame(frame, frame_bounds)
     layout = ui.layout_for(frame)
@@ -174,7 +194,8 @@ def draw_camera_check_hud(
             font=CAMERA_CHECK_BODY_FONT,
         )
 
-    _draw_camera_check_status(frame, layout, ready)
+    status_text, status_color = camera_check_status(config, hand_count, brightness)
+    _draw_camera_check_status(frame, layout, status_text, status_color)
 
     camera_rect = layout.rect(44, 124, 1192, 390)
     _draw_wide_camera_preview(frame, camera_frame, camera_rect, layout, ready)
@@ -199,12 +220,14 @@ def draw_camera_check_hud(
         CAMERA_CHECK_LIME if brightness_ok else CAMERA_CHECK_YELLOW,
         "sun",
     )
+    resolution = camera_resolution or (camera_frame.shape[1], camera_frame.shape[0])
+    resolution_label = "CAMERA" if camera_resolution is not None else "VIEW"
     _draw_camera_metric(
         frame,
         layout,
         layout.rect(836, 532, 400, 82),
-        "FRAME",
-        f"{camera_frame.shape[1]} x {camera_frame.shape[0]}",
+        resolution_label,
+        f"{resolution[0]} x {resolution[1]}",
         CAMERA_CHECK_CYAN,
         "frame",
     )
@@ -232,9 +255,13 @@ def _draw_camera_check_grid(frame, layout: ui.Layout) -> None:
         cv2.line(frame, (0, y), (frame.shape[1], y), CAMERA_CHECK_GRID, layout.px(1), cv2.LINE_AA)
 
 
-def _draw_camera_check_status(frame, layout: ui.Layout, ready: bool) -> None:
+def _draw_camera_check_status(
+    frame,
+    layout: ui.Layout,
+    status_text: str,
+    fill: tuple[int, int, int],
+) -> None:
     rect = layout.rect(916, 28, 320, 64)
-    fill = CAMERA_CHECK_GREEN if ready else CAMERA_CHECK_YELLOW
     _camera_check_panel(frame, rect, layout, fill)
     x, y, _, height = rect
     _draw_camera_icon(
@@ -245,9 +272,9 @@ def _draw_camera_check_status(frame, layout: ui.Layout, ready: bool) -> None:
     )
     _camera_check_text(
         frame,
-        "READY" if ready else "ADJUST CAMERA",
+        status_text,
         (x + layout.px(80), y + layout.px(42)),
-        layout.font(0.62 if ready else 0.55),
+        layout.font(0.62 if status_text == "READY" else 0.48),
         CAMERA_CHECK_INK,
         layout.px(2),
     )

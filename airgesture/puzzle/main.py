@@ -94,6 +94,8 @@ def _run() -> int:
             previous_frame_at = time.perf_counter()
             smoothed_fps = 0.0
             while True:
+                if not window.is_open():
+                    break
                 frame = camera.read_or_raise()
                 current_frame_at = time.perf_counter()
                 instant_fps = 1.0 / max(current_frame_at - previous_frame_at, 0.0001)

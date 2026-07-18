@@ -9,6 +9,7 @@ from airgesture import app
 from airgesture.calibration import (
     CAMERA_CHECK_PAPER,
     CameraCheckConfig,
+    camera_check_status,
     draw_camera_check_hud,
 )
 from airgesture.config import SettingsError
@@ -129,6 +130,14 @@ class MenuNavigationTests(unittest.TestCase):
 
 
 class CameraCheckLayoutTests(unittest.TestCase):
+    def test_status_explains_what_the_user_needs_to_fix(self) -> None:
+        config = CameraCheckConfig(min_brightness=55.0, max_brightness=220.0)
+
+        self.assertEqual(camera_check_status(config, 0, 120.0)[0], "SHOW A HAND")
+        self.assertEqual(camera_check_status(config, 1, 30.0)[0], "ADD MORE LIGHT")
+        self.assertEqual(camera_check_status(config, 1, 240.0)[0], "REDUCE LIGHT")
+        self.assertEqual(camera_check_status(config, 1, 120.0)[0], "READY")
+
     def test_hud_renders_without_clipping_coordinates_at_hd(self) -> None:
         camera_color = (24, 28, 34)
         frame = np.full((720, 1280, 3), camera_color, dtype=np.uint8)
