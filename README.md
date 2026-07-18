@@ -164,52 +164,20 @@ Puzzle controls:
 - `q` or `Esc`: quit
 - `F11`: toggle fullscreen; `Esc` leaves fullscreen before quitting
 
-## Current Scope
+## Features
 
-Implemented:
+- Responsive main menu with camera selection, fullscreen support, and optional diagnostics
+- Reliable Windows webcam capture with backend fallback and automatic reconnection
+- Local MediaPipe hand tracking with adaptive smoothing and dropout tolerance
+- Gesture-controlled Air Drawing with colors, brush sizes, eraser, undo, save, and clear
+- One-stroke recognition for `A-Z` letters and `0-9` digits
+- Gesture Puzzle with automatic capture, 3x3/4x4 difficulty, pinch swapping, timer, and move counter
+- Configurable tracking profiles with safe camera and window cleanup
 
-- Webcam capture with mirrored preview
-- Visible camera-scanning state instead of a blank startup delay
-- Runtime camera discovery and A/D camera selection from the main menu
-- Windows camera backend fallback: DirectShow, Media Foundation, then default
-- Actual camera backend, resolution, and driver-reported FPS in window titles
-- Bounded frame retry and automatic camera reconnection
-- MediaPipe hand landmark detection
-- Lazy MediaPipe loading only when a tracking mode starts, after consent
-- SHA-256 integrity verification for the bundled hand-tracking model
-- MediaPipe video-mode tracking with monotonic frame timestamps
-- Adaptive One Euro filtering across all 21 hand landmarks
-- Separate tracking profiles for drawing, puzzle, and optional Camera Check
-- Two-frame cursor and pinch dropout tolerance for brief detection loss
-- Local MediaPipe Tasks model at
-  `airgesture/resources/models/hand_landmarker.task`
-- Home menu launcher for selecting drawing or puzzle mode
-- Optional responsive Camera Check screen with hand-count and brightness diagnostics
-- Actionable Camera Check guidance for missing hands and low/high lighting
-- Camera Check reports the camera's source resolution instead of viewport size
-- Gesture-controlled 3x3 webcam puzzle game
-- 3x3 and 4x4 puzzle difficulty selection
-- Countdown before puzzle start
-- Pinch gesture tile selection and swapping
-- Puzzle timer, move counter, cursor, and victory screen
-- Debug landmark drawing
-- Smoothed index fingertip drawing on a separate virtual canvas
-- Velocity-adaptive drawing smoothing for steady slow strokes and responsive fast strokes
-- Configurable stroke-end debounce to avoid premature recognition
-- Undo history for drawing and eraser strokes
-- Opaque high-saturation drawing colors for stronger strokes
-- Short tracking-drop tolerance to reduce broken strokes
-- Stroke-based cleanup after each completed drawing gesture
-- Pinch-to-draw gesture with hysteresis for fewer accidental strokes
-- Gesture modes for draw, move, and idle
-- Gesture toolbar for colors, eraser, brush size, clear, and save
-- Template recognition for one-stroke `A-Z` letters and `0-9` digits
-- Clear canvas with `c`
-- 16:9 preview frame that preserves camera aspect ratio
-- Basic status overlay with hand detection state and FPS
-- Safe camera/window cleanup
-- Graceful exit when a native OpenCV window is closed with the title-bar button
+## Roadmap
 
+- Full-word handwriting recognition
+- Bundled trained ONNX handwriting model
 Not implemented yet:
 
 - Recognition for full handwriting words
