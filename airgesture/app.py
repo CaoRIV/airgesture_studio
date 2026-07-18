@@ -100,12 +100,17 @@ def main() -> int:
 
 def _run_menu() -> int:
     settings = require_valid_settings()
-    camera_indices = refresh_camera_indices(settings.camera)
     window = ResponsiveWindow(WINDOW_NAME)
     pointer = MenuPointerState()
     try:
         window.create()
         cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+        camera_indices = refresh_camera_indices_with_feedback(
+            settings.camera,
+            window,
+            pointer,
+            selected_index=0,
+        )
         return _menu_loop(settings.camera, camera_indices, window, pointer)
     finally:
         cv2.destroyAllWindows()
@@ -120,6 +125,8 @@ def _menu_loop(
     selected_index = 0
 
     while True:
+        if not window.is_open():
+            break
         viewport = window.viewport()
         pointer.width = viewport.width
         pointer.height = viewport.height
@@ -144,9 +151,12 @@ def _menu_loop(
             if clicked_action == MenuAction.QUIT:
                 break
             run_action(clicked_action)
-            camera_indices = refresh_camera_indices(camera_config)
-            window.recreate()
-            cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+            camera_indices = restore_menu_after_action(
+                camera_config,
+                window,
+                pointer,
+                selected_index,
+            )
             pointer.hovered_index = None
             continue
 
@@ -154,27 +164,19 @@ def _menu_loop(
             break
         if key_code in (ord("1"),):
             run_action(MenuAction.DRAWING)
-            camera_indices = refresh_camera_indices(camera_config)
-            window.recreate()
-            cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+            camera_indices = restore_menu_after_action(camera_config, window, pointer, selected_index)
         elif key_code in (ord("2"),):
             run_action(MenuAction.PUZZLE)
-            camera_indices = refresh_camera_indices(camera_config)
-            window.recreate()
-            cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+            camera_indices = restore_menu_after_action(camera_config, window, pointer, selected_index)
         elif key_code in (ord("k"), ord("K")):
             run_action(MenuAction.CAMERA_CHECK)
-            camera_indices = refresh_camera_indices(camera_config)
-            window.recreate()
-            cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+            camera_indices = restore_menu_after_action(camera_config, window, pointer, selected_index)
         elif key_code in (13, 10):
             action = MENU_ITEMS[selected_index].action
             if action == MenuAction.QUIT:
                 break
             run_action(action)
-            camera_indices = refresh_camera_indices(camera_config)
-            window.recreate()
-            cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+            camera_indices = restore_menu_after_action(camera_config, window, pointer, selected_index)
         elif key_code in (ord("w"), ord("W")):
             pointer.hovered_index = None
             selected_index = (selected_index - 1) % len(MENU_ITEMS)
@@ -194,12 +196,55 @@ def _menu_loop(
                 1,
             )
         elif key_code in (ord("r"), ord("R")):
-            camera_indices = refresh_camera_indices(camera_config)
+            camera_indices = refresh_camera_indices_with_feedback(
+                camera_config,
+                window,
+                pointer,
+                selected_index,
+            )
         elif key_code == 0:
             # Some OpenCV builds report arrow keys through a second waitKey call.
             selected_index = selected_index
 
     return 0
+
+
+def restore_menu_after_action(
+    camera_config: CameraConfig,
+    window: ResponsiveWindow,
+    pointer: MenuPointerState,
+    selected_index: int,
+) -> list[int]:
+    window.recreate()
+    cv2.setMouseCallback(WINDOW_NAME, handle_menu_mouse, pointer)
+    return refresh_camera_indices_with_feedback(
+        camera_config,
+        window,
+        pointer,
+        selected_index,
+    )
+
+
+def refresh_camera_indices_with_feedback(
+    camera_config: CameraConfig,
+    window: ResponsiveWindow,
+    pointer: MenuPointerState,
+    selected_index: int,
+) -> list[int]:
+    viewport = window.viewport()
+    pointer.width = viewport.width
+    pointer.height = viewport.height
+    frame = render_menu(
+        selected_index,
+        camera_index=camera_config.camera_index,
+        camera_indices=(),
+        width=viewport.width,
+        height=viewport.height,
+        scanning=True,
+    )
+    cv2.imshow(WINDOW_NAME, frame)
+    cv2.waitKeyEx(1)
+    return refresh_camera_indices(camera_config)
 
 
 def menu_item_rects(width: int, height: int) -> list[tuple[int, int, int, int]]:
@@ -280,6 +325,7 @@ def render_menu(
     camera_indices: list[int] | None = None,
     width: int = MENU_WIDTH,
     height: int = MENU_HEIGHT,
+    scanning: bool = False,
 ):
     frame = np.full((height, width, 3), MENU_PAPER, dtype=np.uint8)
     layout = ui.Layout(width, height)
@@ -325,7 +371,7 @@ def render_menu(
     )
 
     draw_mode_visual(frame, layout)
-    draw_system_strip(frame, layout, camera_index, camera_indices)
+    draw_system_strip(frame, layout, camera_index, camera_indices, scanning=scanning)
 
     _menu_panel(frame, layout.rect(645, 100, 560, 505), layout, radius=7)
     _put_text(
@@ -436,10 +482,18 @@ def draw_system_strip(
     layout: ui.Layout | None = None,
     camera_index: int = 0,
     camera_indices: list[int] | None = None,
+    *,
+    scanning: bool = False,
 ) -> None:
     layout = layout or ui.layout_for(frame)
     _menu_panel(frame, layout.rect(79, 529, 516, 73), layout, radius=5)
-    if camera_indices is None:
+    if scanning:
+        labels = [
+            ("SCANNING", MENU_CYAN, "camera"),
+            ("CAMERAS", MENU_LIME, "target"),
+            ("PLEASE WAIT", MENU_YELLOW, "arrows"),
+        ]
+    elif camera_indices is None:
         labels = [
             ("WEBCAM", MENU_CYAN, "camera"),
             ("MEDIAPIPE", MENU_LIME, "target"),

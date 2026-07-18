@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 
@@ -7,16 +8,22 @@ import numpy as np
 
 from airgesture.config import SettingsError, require_valid_settings
 from airgesture.core.camera import Camera, CameraConfig
+from airgesture.core.hand_tracker import _validate_model
 from airgesture.errors import (
     CameraAccessError,
     CameraDisconnectedError,
     CameraError,
     CameraNotFoundError,
+    HandTrackingError,
 )
 from airgesture.ui.runtime_errors import run_with_error_dialog
 
 
 class RuntimeErrorHandlingTests(unittest.TestCase):
+    def test_missing_hand_model_has_actionable_error(self) -> None:
+        with self.assertRaisesRegex(HandTrackingError, "model is missing"):
+            _validate_model(Path("missing-hand-model.task"))
+
     def test_expected_error_is_shown_without_crashing(self) -> None:
         def fail() -> int:
             raise CameraError("Camera is unavailable")

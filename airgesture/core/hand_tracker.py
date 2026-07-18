@@ -1,32 +1,97 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
 import os
 from pathlib import Path
 import tempfile
 import time
+from typing import Any
 
 import cv2
 
-from airgesture.paths import BUNDLED_MODELS_DIR, CACHE_DIR
-
-_matplotlib_cache_dir = CACHE_DIR / "matplotlib"
-try:
-    _matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
-except OSError:
-    _matplotlib_cache_dir = Path(tempfile.gettempdir()) / "AirGesture" / "matplotlib"
-    _matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
-os.environ["MPLCONFIGDIR"] = str(_matplotlib_cache_dir)
-
-import mediapipe as mp
-from mediapipe.tasks.python import BaseOptions
-from mediapipe.tasks.python.components.containers.landmark import NormalizedLandmark
-from mediapipe.tasks.python import vision
-from mediapipe.tasks.python.vision.hand_landmarker import HandLandmarkerResult
-
 from airgesture.core.smoothing import OneEuroConfig, OneEuroPointFilter
 from airgesture.errors import HandTrackingError
+from airgesture.paths import BUNDLED_MODELS_DIR, CACHE_DIR
 from airgesture.privacy import require_metrics_consent
+
+
+mp: Any = None
+BaseOptions: Any = None
+NormalizedLandmark: Any = None
+vision: Any = None
+HandLandmarkerResult: Any = None
+BUNDLED_MODEL_SHA256 = "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
+
+
+def _load_mediapipe_runtime() -> None:
+    """Import the heavy tracking runtime only after the user starts a mode."""
+    global mp, BaseOptions, NormalizedLandmark, vision, HandLandmarkerResult
+    if mp is not None:
+        return
+
+    cache_candidates = (
+        CACHE_DIR / "matplotlib",
+        Path(tempfile.gettempdir()) / "AirGesture" / "matplotlib",
+    )
+    for cache_dir in cache_candidates:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            continue
+        os.environ["MPLCONFIGDIR"] = str(cache_dir)
+        break
+
+    try:
+        import mediapipe as mediapipe_module
+        from mediapipe.tasks.python import BaseOptions as base_options_type
+        from mediapipe.tasks.python import vision as vision_module
+        from mediapipe.tasks.python.components.containers.landmark import (
+            NormalizedLandmark as normalized_landmark_type,
+        )
+        from mediapipe.tasks.python.vision.hand_landmarker import (
+            HandLandmarkerResult as hand_landmarker_result_type,
+        )
+    except Exception as exc:
+        raise HandTrackingError(
+            "MediaPipe could not be loaded. Reinstall AirGesture Studio and "
+            "its locked runtime dependencies."
+        ) from exc
+
+    mp = mediapipe_module
+    BaseOptions = base_options_type
+    NormalizedLandmark = normalized_landmark_type
+    vision = vision_module
+    HandLandmarkerResult = hand_landmarker_result_type
+
+
+def _validate_model(model_path: Path) -> None:
+    if not model_path.is_file():
+        raise HandTrackingError(
+            "The hand-tracking model is missing. Reinstall AirGesture Studio."
+        )
+
+    bundled_model = BUNDLED_MODELS_DIR / "hand_landmarker.task"
+    try:
+        is_bundled = model_path.resolve() == bundled_model.resolve()
+    except OSError:
+        is_bundled = False
+    if not is_bundled:
+        return
+
+    try:
+        with model_path.open("rb") as model_file:
+            digest = hashlib.file_digest(model_file, "sha256").hexdigest()
+    except OSError as exc:
+        raise HandTrackingError(
+            "The bundled hand-tracking model could not be read. "
+            "Reinstall AirGesture Studio."
+        ) from exc
+    if digest != BUNDLED_MODEL_SHA256:
+        raise HandTrackingError(
+            "The bundled hand-tracking model is damaged or has been modified. "
+            "Reinstall AirGesture Studio."
+        )
 
 
 @dataclass(frozen=True)
@@ -61,13 +126,10 @@ class HandTracker:
     def __init__(self, config: HandTrackerConfig | None = None) -> None:
         self.config = config or HandTrackerConfig()
         model_path = Path(self.config.model_asset_path)
-        if not model_path.exists():
-            raise HandTrackingError(
-                "The bundled hand-tracking model is missing. "
-                "Reinstall AirGesture Studio."
-            )
+        _validate_model(model_path)
 
         require_metrics_consent()
+        _load_mediapipe_runtime()
 
         options = vision.HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model_path)),

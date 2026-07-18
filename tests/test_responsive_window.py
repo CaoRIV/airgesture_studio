@@ -59,6 +59,22 @@ class FullscreenInputTests(unittest.TestCase):
 
         self.assertFalse(window.handle_window_key(27))
 
+    def test_native_close_is_detected(self) -> None:
+        window = self.window()
+        with patch(
+            "airgesture.ui.window.cv2.getWindowProperty",
+            return_value=0.0,
+        ):
+            self.assertFalse(window.is_open())
+
+    def test_visible_window_stays_open(self) -> None:
+        window = self.window()
+        with patch(
+            "airgesture.ui.window.cv2.getWindowProperty",
+            return_value=1.0,
+        ):
+            self.assertTrue(window.is_open())
+
 
 if __name__ == "__main__":
     unittest.main()

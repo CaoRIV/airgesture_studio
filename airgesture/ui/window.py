@@ -146,6 +146,19 @@ class ResponsiveWindow:
         cv2.imshow(self.name, output)
         return bounds
 
+    def is_open(self) -> bool:
+        """Return False after the user closes the native window."""
+        try:
+            return cv2.getWindowProperty(self.name, cv2.WND_PROP_VISIBLE) >= 1.0
+        except (AttributeError, cv2.error):
+            return False
+
+    def close(self) -> None:
+        try:
+            cv2.destroyWindow(self.name)
+        except cv2.error:
+            pass
+
     def toggle_fullscreen(self) -> None:
         if self.is_fullscreen:
             self.leave_fullscreen()

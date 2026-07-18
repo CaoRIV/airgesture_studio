@@ -173,6 +173,8 @@ def _run() -> int:
             smoothed_fps = 0.0
 
             while True:
+                if not window.is_open():
+                    break
                 frame_time = time.perf_counter()
                 frame = camera.read_or_raise()
 
