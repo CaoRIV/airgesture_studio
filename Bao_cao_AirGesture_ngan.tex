@@ -1,0 +1,339 @@
+% !TeX program = xelatex
+\documentclass[12pt,a4paper]{article}
+
+% Bản rút gọn, tự chứa, không cần ảnh hoặc tệp phụ.
+\usepackage[a4paper,margin=22mm]{geometry}
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{Latin Modern Mono}
+
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+
+\definecolor{Forest}{HTML}{0B5D3B}
+\definecolor{Leaf}{HTML}{238636}
+\definecolor{Mint}{HTML}{EAF7EF}
+\definecolor{Red}{HTML}{B4232A}
+\definecolor{Rose}{HTML}{FCEDEE}
+\definecolor{Ink}{HTML}{17211D}
+\definecolor{Gray}{HTML}{5D6B64}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=Forest,
+  urlcolor=Red,
+  pdftitle={Báo cáo Hand Gesture Air Drawing System},
+  pdfauthor={AirGesture Studio}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.15}
+\setlist[itemize]{leftmargin=6mm,itemsep=2pt}
+\setlist[enumerate]{leftmargin=7mm,itemsep=2pt}
+
+\titleformat{\section}
+  {\Large\sffamily\bfseries\color{Forest}}
+  {\thesection}{0.6em}{}
+\titleformat{\subsection}
+  {\large\sffamily\bfseries\color{Red}}
+  {\thesubsection}{0.6em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\small\color{Forest}AIRGESTURE STUDIO}
+\fancyhead[R]{\sffamily\small\color{Red}BÁO CÁO COMPUTER VISION}
+\fancyfoot[C]{\color{Forest}\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\greenbox}[1]{%
+  \par\medskip
+  \noindent\fcolorbox{Forest}{Mint}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{#1}}%
+  \par\medskip
+}
+\newcommand{\redbox}[1]{%
+  \par\medskip
+  \noindent\fcolorbox{Red}{Rose}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{#1}}%
+  \par\medskip
+}
+
+\begin{document}
+\color{Ink}
+
+\begin{titlepage}
+\centering
+\vspace*{25mm}
+
+{\sffamily\bfseries\color{Forest}\fontsize{30}{35}\selectfont
+HAND GESTURE\\[3mm]
+AIR DRAWING SYSTEM\par}
+
+\vspace{8mm}
+{\sffamily\color{Red}\Large
+Báo cáo kỹ thuật sản phẩm Computer Vision\par}
+
+\vspace{15mm}
+{\color{Forest}\rule{0.75\textwidth}{1.2pt}}\par
+\vspace{8mm}
+
+\begin{tabular}{rl}
+\textbf{\color{Forest}Tên sản phẩm:} & AirGesture Studio\\
+\textbf{\color{Forest}Phiên bản:} & 1.0.0\\
+\textbf{\color{Forest}Nền tảng:} & Windows 10/11, Python 3.14\\
+\textbf{\color{Forest}Công nghệ:} & OpenCV, MediaPipe, NumPy\\
+\textbf{\color{Forest}Ngày cập nhật:} & 27/07/2026\\
+\end{tabular}
+
+\vfill
+{\sffamily\color{Gray}
+Tương tác không chạm bằng cử chỉ tay thời gian thực}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Tóm tắt sản phẩm}
+
+\greenbox{\textbf{AirGesture Studio} biến webcam phổ thông thành một bề mặt
+tương tác không chạm. Người dùng có thể vẽ trong không khí, điều khiển công cụ
+bằng cử chỉ, nhận dạng ký tự A--Z và 0--9, hoặc chơi trò ghép ảnh bằng thao tác
+pinch. Khung hình camera được xử lý cục bộ trên máy.}
+
+Sản phẩm gồm ba màn hình chính:
+
+\begin{itemize}
+  \item \textbf{Air Drawing:} vẽ, tẩy, đổi màu/cỡ bút, undo, clear và lưu PNG.
+  \item \textbf{Gesture Puzzle:} chụp ảnh bằng hai tay và ghép lưới
+  $3\times3$ hoặc $4\times4$ bằng pinch.
+  \item \textbf{Camera Check:} kiểm tra camera, ánh sáng, số tay và chất lượng
+  tracking trước khi sử dụng.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{>{\bfseries}p{38mm}Y}
+\toprule
+\color{Forest}Hạng mục & \textbf{\color{Forest}Trạng thái}\\
+\midrule
+Camera & 1280$\times$720, 30 FPS, mirror, chọn camera trong phiên\\
+Hand tracking & MediaPipe Hand Landmarker, 21 landmarks mỗi tay\\
+Air Drawing & Một tay, pinch-to-draw, toolbar bằng cử chỉ\\
+Recognition & Template A--Z/0--9; hỗ trợ model ONNX tùy chọn\\
+Gesture Puzzle & Hai tay để capture; pinch để chọn và đổi tile\\
+Kiểm thử & 78/78 kiểm thử tự động đạt\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kiến trúc hệ thống}
+
+Luồng xử lý chính:
+
+\greenbox{\centering
+\textbf{Webcam}
+$\rightarrow$ \textbf{OpenCV Capture}
+$\rightarrow$ \textbf{MediaPipe Landmarks}
+$\rightarrow$ \textbf{Smoothing}
+$\rightarrow$ \textbf{Gesture}
+$\rightarrow$ \textbf{Drawing/Puzzle UI}}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{35mm}p{48mm}Y}
+\toprule
+\color{Forest}Nhóm & \textbf{\color{Forest}Tệp chính}
+& \textbf{\color{Forest}Trách nhiệm}\\
+\midrule
+Core & \code{camera.py} & Mở camera, fallback backend, retry và reconnect\\
+Core & \code{hand_tracker.py} & MediaPipe, 21 landmarks, kiểm tra model\\
+Core & \code{smoothing.py} & EMA, adaptive smoothing, One Euro Filter\\
+Drawing & \code{canvas.py} & Canvas, bút, tẩy, undo và lưu ảnh\\
+Drawing & \code{letter_recognizer.py} & Nhận dạng template và ONNX\\
+Puzzle & \code{main.py}, \code{board.py} & State machine, tile và chiến thắng\\
+Config/UI & \code{settings.py}, \code{window.py} & Cấu hình, cửa sổ và lỗi runtime\\
+\bottomrule
+\end{tabularx}
+
+\section{Pipeline Computer Vision}
+
+\subsection{Thu nhận hình ảnh}
+
+OpenCV yêu cầu camera ở độ phân giải 1280$\times$720 và 30 FPS. Trên Windows,
+ứng dụng thử lần lượt \textbf{DirectShow}, \textbf{Media Foundation} và backend
+mặc định. Frame được lật ngang để chuyển động giống gương, sau đó đổi từ BGR
+sang RGB trước khi đưa vào MediaPipe.
+
+Nếu đọc frame thất bại, hệ thống retry ngắn rồi reconnect tối đa ba lần. Camera
+được giải phóng an toàn khi đóng cửa sổ hoặc có lỗi.
+
+\subsection{Phát hiện và lọc landmarks}
+
+MediaPipe trả về 21 điểm $(x,y,z)$ cho mỗi bàn tay. Air Drawing dùng tối đa một
+tay; Gesture Puzzle dùng tối đa hai tay. Các điểm quan trọng gồm thumb tip
+(index 4) và index tip (index 8).
+
+Mỗi landmark đi qua One Euro Filter. Tần số cắt thay đổi theo vận tốc:
+
+\begin{equation}
+f_{c,t}=f_{\min}+\beta\lVert v_t\rVert .
+\end{equation}
+
+Khi tay đứng yên, bộ lọc giảm jitter. Khi tay di chuyển nhanh, tần số cắt tăng
+để cursor phản hồi nhanh hơn. Hệ thống cũng giới hạn bước nhảy bất thường trong
+một frame và reset filter sau khi mất bàn tay quá lâu.
+
+\subsection{Adaptive smoothing cho nét vẽ}
+
+Index tip còn được làm mượt theo vận tốc. Hệ số $\alpha$ thay đổi từ 0.18 khi
+tay di chuyển chậm đến 0.82 khi tay di chuyển nhanh:
+
+\begin{equation}
+p_t=p_{t-1}+\alpha_t(r_t-p_{t-1}).
+\end{equation}
+
+Cách này tạo nét ổn định khi viết chậm nhưng hạn chế cảm giác trễ khi người dùng
+vẽ nhanh. Hai frame mất detection ngắn vẫn giữ vị trí trước đó để tránh đứt nét.
+
+\subsection{Pinch hysteresis}
+
+Khoảng cách giữa đầu ngón cái và ngón trỏ được tính bằng:
+
+\begin{equation}
+d=\sqrt{(x_4-x_8)^2+(y_4-y_8)^2}.
+\end{equation}
+
+Trong Air Drawing, pinch bắt đầu khi $d\le46$ px và chỉ nhả khi $d\ge68$ px.
+Trong Puzzle, hai ngưỡng là 48 px và 72 px. Khoảng chết giữa hai ngưỡng giúp
+trạng thái không bật/tắt liên tục do nhiễu landmark.
+
+\section{Air Drawing và nhận dạng ký tự}
+
+Khi pinch đang active, index tip là đầu bút. Stroke chỉ nối hai điểm khi khoảng
+cách không vượt 180 px. Sau khi nhả pinch, hệ thống chờ 0.18 giây trước khi kết
+thúc stroke để chống mất tracking tạm thời.
+
+Thanh công cụ cung cấp:
+
+\begin{itemize}
+  \item màu đỏ, xanh lá, xanh dương, vàng và trắng;
+  \item bút mảnh 7 px, bút dày 16 px và tẩy 34 px;
+  \item clear, undo tối đa 20 bước, save và mở thư mục ảnh;
+  \item tư thế giơ ngón trỏ và ngón giữa để chọn công cụ mà không vẽ.
+\end{itemize}
+
+Pipeline nhận dạng một stroke:
+
+\begin{enumerate}
+  \item Loại điểm trùng gần nhau và làm mượt đường đi.
+  \item Chuẩn hóa vị trí, tỷ lệ và resample thành 64 điểm.
+  \item So sánh khoảng cách với template A--Z và 0--9.
+  \item Xếp hạng confidence và kiểm tra chênh lệch hai kết quả đầu.
+  \item Snap thành ký tự sạch nếu confidence $\ge0.74$ và margin $\ge0.07$.
+  \item Nếu chưa đủ chắc chắn, hiển thị tối đa ba gợi ý.
+\end{enumerate}
+
+Các cặp dễ nhầm như I/1, O/0, S/5, Z/2, B/8 và G/6 yêu cầu margin cao hơn.
+Model ONNX tùy chọn nhận tensor grayscale $1\times1\times64\times64$ và được
+kết hợp với template theo trọng số mặc định 0.70.
+
+\redbox{\textbf{Giới hạn:} dự án chưa đóng gói model ONNX đã huấn luyện.
+Chế độ mặc định nhận dạng bằng template, chỉ hỗ trợ ký tự đơn một stroke và
+chưa nhận dạng từ hoặc câu viết tay.}
+
+\section{Gesture Puzzle}
+
+Puzzle có bốn trạng thái:
+
+\greenbox{\centering
+\textbf{CAPTURE}
+$\rightarrow$ \textbf{COUNTDOWN}
+$\rightarrow$ \textbf{PLAYING}
+$\rightarrow$ \textbf{VICTORY}}
+
+Để auto capture, hệ thống cần thấy hai tay, độ mở đạt tỷ lệ tối thiểu 0.34 và
+bounding box ổn định trong ít nhất năm frame. Sau countdown ba giây, ảnh được
+crop thành hình vuông, chia lưới và shuffle.
+
+Index tip điều khiển cursor. Người dùng pinch trên một tile để chọn và nhả pinch
+trên tile khác để đổi vị trí. Trò chơi theo dõi thời gian, số lượt di chuyển và
+kiểm tra thứ tự tile sau mỗi thao tác.
+
+\section{Độ tin cậy và quyền riêng tư}
+
+\begin{itemize}
+  \item Model MediaPipe bundled được kiểm tra SHA-256 trước khi khởi tạo.
+  \item MediaPipe chỉ được lazy-load sau khi người dùng chọn chế độ tracking.
+  \item Ứng dụng yêu cầu đồng ý trước lần tracking đầu tiên; mặc định là No.
+  \item Frame và landmarks được xử lý cục bộ, không có pipeline upload.
+  \item Ảnh chỉ được lưu khi người dùng chủ động chọn Save.
+  \item Cấu hình JSON sai hoặc có trường lạ bị từ chối với thông báo rõ.
+  \item Lỗi camera, model và OpenCV được hiển thị bằng dialog có hướng xử lý.
+\end{itemize}
+
+Dữ liệu runtime nằm trong thư mục \texttt{LOCALAPPDATA\textbackslash
+AirGesture}; bản vẽ được lưu ở \texttt{Documents\textbackslash
+AirGesture\textbackslash Drawings}.
+
+\section{Kiểm thử và đánh giá}
+
+Bộ kiểm thử hiện tại có \textbf{78 test và tất cả đều đạt}. Phạm vi gồm:
+
+\begin{itemize}
+  \item smoothing, dropout và giới hạn outlier;
+  \item pinch hysteresis và stroke debounce;
+  \item canvas save/undo, toolbar và responsive layout;
+  \item nhận dạng I/1, confidence gate và ảnh đầu vào ONNX;
+  \item camera fallback, disconnect, reconnect và runtime errors;
+  \item settings, privacy consent, đường dẫn dữ liệu và fullscreen.
+\end{itemize}
+
+\redbox{78 test đạt chứng minh logic phần mềm hoạt động theo thiết kế, nhưng
+không phải độ chính xác Computer Vision trên người dùng thật. Sản phẩm vẫn cần
+benchmark accuracy, false gesture rate, jitter, FPS và độ trễ end-to-end.}
+
+\section{Yêu cầu và cách chạy}
+
+\begin{itemize}
+  \item Windows 10 hoặc Windows 11;
+  \item Python 3.14, 64-bit;
+  \item webcam hoạt động;
+  \item MediaPipe 0.10.35, NumPy 2.5.0 và OpenCV Contrib 4.13.0.92.
+\end{itemize}
+
+\begin{verbatim}
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m airgesture
+\end{verbatim}
+
+\section{Hướng phát triển}
+
+\begin{enumerate}
+  \item Thu dataset nhiều người dùng, điều kiện sáng và loại camera.
+  \item Chuẩn hóa ngưỡng pinch theo kích thước bàn tay thay vì pixel tuyệt đối.
+  \item Huấn luyện và đóng gói model ONNX A--Z/0--9.
+  \item Đánh giá confusion matrix cho các cặp ký tự dễ nhầm.
+  \item Bổ sung nhận dạng nhiều stroke, từ ngắn và video replay test.
+  \item Hoàn tất giấy phép source, model và đóng gói installer Windows.
+\end{enumerate}
+
+\section{Kết luận}
+
+AirGesture Studio đã có đầy đủ thành phần nền tảng của một sản phẩm Computer
+Vision desktop: camera, hand landmarks, lọc tín hiệu, gesture recognition,
+logic ứng dụng, giao diện, xử lý lỗi, lưu dữ liệu và quyền riêng tư. Kiến trúc
+module và bộ kiểm thử hiện tại là nền tảng tốt để phát triển từ prototype thành
+sản phẩm ổn định. Ưu tiên tiếp theo nên là benchmark thực tế, chuẩn hóa gesture
+theo hình học bàn tay và hoàn thiện model nhận dạng ONNX.
+
+\end{document}
