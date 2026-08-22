@@ -1,6 +1,22 @@
-# Hand Gesture Air Drawing System
+<div align="center">
+  <img src="demo/airgesture-logo.svg" width="96" height="96" alt="AirGesture Studio logo">
+  <h1>AirGesture Studio</h1>
+  <p><strong>Draw, create, and play with touch-free hand gestures.</strong></p>
 
-This project has two gesture-controlled experiences:
+  <p>
+    <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-238636?style=flat-square">
+    <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white">
+    <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&amp;logo=windows11&amp;logoColor=white">
+    <img alt="78 tests passing" src="https://img.shields.io/badge/tests-78%20passing-238636?style=flat-square&amp;logo=pytest&amp;logoColor=white">
+    <img alt="MediaPipe" src="https://img.shields.io/badge/MediaPipe-Hand%20Tracking-EA4335?style=flat-square&amp;logo=google&amp;logoColor=white">
+    <img alt="OpenCV 4.13" src="https://img.shields.io/badge/OpenCV-4.13-5C3EE8?style=flat-square&amp;logo=opencv&amp;logoColor=white">
+    <img alt="Proprietary license" src="https://img.shields.io/badge/license-proprietary-B4232A?style=flat-square">
+  </p>
+</div>
+
+---
+
+Hand Gesture Air Drawing System is a local-first computer-vision desktop app with two gesture-controlled experiences:
 
 - Air drawing: draw with your hand, use a gesture toolbar, clean strokes, and snap simple strokes into clean letters or digits.
 - Gesture puzzle: capture a webcam image and solve a 3x3 tile puzzle with pinch gestures.
